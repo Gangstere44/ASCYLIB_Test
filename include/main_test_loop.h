@@ -181,41 +181,6 @@
     }
 
 #  define TEST_LOOP_ONLY_UPDATES()					\
-  c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); \
-  if (unlikely(c < scale_put))            \
-    {                 \
-      key = (c & rand_max) + rand_min;          \
-      int res;                \
-      START_TS(1);    \
-      res = 1;              \
-      DS_ADD(&queue, h, ((void*) key));          \
-      if(res)               \
-  {               \
-    END_TS(1, my_putting_count_succ);       \
-    ADD_DUR(my_putting_succ);         \
-    my_putting_count_succ++;          \
-  }               \
-      END_TS_ELSE(4, my_putting_count - my_putting_count_succ,    \
-      my_putting_fail);         \
-      my_putting_count++;           \
-    }                 \
-  else if(unlikely(c <= scale_rem))         \
-    {                 \
-      void* removed;              \
-      START_TS(2);              \
-      removed = DS_REMOVE(&queue, h);           \
-      if(removed != ((void*) 3))              \
-  {               \
-    END_TS(2, my_removing_count_succ);        \
-    ADD_DUR(my_removing_succ);          \
-    my_removing_count_succ++;         \
-  }               \
-      END_TS_ELSE(5, my_removing_count - my_removing_count_succ,  \
-      my_removing_fail);          \
-      my_removing_count++;            \
-    }                 \
-  cpause((num_threads-1)*32);
-    /*
   c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));	\
   if (unlikely(c < scale_put))						\
     {									\
@@ -249,7 +214,6 @@
       my_removing_count++;						\
     }									\
   cpause((num_threads-1)*32);
-*/
 /* cdelay(1); */
 /* cpause(0); */
 /* cdelay((num_threads-1)*128); */
