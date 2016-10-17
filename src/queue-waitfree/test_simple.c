@@ -60,7 +60,7 @@
 #define DS_ADD(q,h,v)       enqueue(q, h, v)
 #define DS_REMOVE(q,h)      dequeue(q,h)
 #define DS_SIZE(q)          wf_queue_size(q)
-#define DS_NEW(q)           init_wf_queue(q)
+#define DS_NEW()           init_wf_queue()
 
 #define DS_TYPE             wf_queue_t
 #define DS_NODE             wf_segment_t
@@ -107,7 +107,7 @@ volatile ticks *removing_count_succ;
 volatile ticks *total;
 
 //ADDED
-static volatile wf_queue_t queue;
+//static volatile wf_queue_t queue;
 
 
 /* ################################################################### *
@@ -125,7 +125,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint32_t id;
-//  DS_TYPE* set;
+  DS_TYPE* set;
   wf_handle_t* handle;
 
 } thread_data_t;
@@ -138,8 +138,7 @@ test(void* thread)
   set_cpu(ID);
   ssalloc_init();
 
-// CHANGED
-  //DS_TYPE* set = td->set;
+  DS_TYPE* set = td->set;
   wf_handle_t* h = td->handle;
 
   THREAD_INIT(ID);
@@ -184,8 +183,7 @@ test(void* thread)
   uint32_t scale_rem = (uint32_t) (update_rate * UINT_MAX);
   uint32_t scale_put = (uint32_t) (put_rate * UINT_MAX);
 
-  int i;
-  uint32_t num_elems_thread = (uint32_t) (initial / num_threads);
+    uint32_t num_elems_thread = (uint32_t) (initial / num_threads);
   int32_t missing = (uint32_t) initial - (num_elems_thread * num_threads);
   if (ID < missing)
     {
@@ -202,7 +200,7 @@ test(void* thread)
 
   if (!ID)
     {
-      printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(&queue));
+      printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(set));
     }
 
 
@@ -221,7 +219,7 @@ test(void* thread)
         int res;                
         START_TS(1);    
         res = 1;              
-        DS_ADD(&queue, h, ((void*) key));          
+        DS_ADD(set, h, ((void*) key));          
         if(res)           
         {               
           END_TS(1, my_putting_count_succ);       
@@ -236,7 +234,7 @@ test(void* thread)
       {                 
         void* removed;              
         START_TS(2);              
-        removed = DS_REMOVE(&queue, h);           
+        removed = DS_REMOVE(set, h);           
         if(removed != ((void*) 3))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -255,7 +253,7 @@ test(void* thread)
 
   if (!ID)
     {
-      size_after = DS_SIZE(&queue);
+      size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
     }
 
@@ -457,12 +455,11 @@ main(int argc, char **argv)
     
   stop = 0;
   
-// CHANGED
-/*  
+
+
   DS_TYPE* set = DS_NEW();
   assert(set != NULL);
-*/
-init_wf_queue(&queue);
+
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -478,17 +475,18 @@ init_wf_queue(&queue);
   removing_count = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
   
-// ADDED : HANDLES CREATION
+// ADDED : HANDLES CREATION AND QUEUE
 
 wf_handle_t handles[num_threads];
-wf_handle_t* first = &handles[num_threads - 1];
-init_wf_handle(first, queue.q);
-wf_handle_t* prev = first;
+wf_handle_t* volatile first = &handles[num_threads - 1];
+init_wf_handle(first, set->q);
+wf_handle_t* volatile prev = first;
+wf_handle_t* volatile currentH = NULL;
 uint64_t hn;
 for(hn = 0; hn < num_threads - 1; hn++) {
 	
-	volatile wf_handle_t* currentH = &handles[hn];
-	init_wf_handle(currentH, queue.q);
+	currentH = &handles[hn];
+	init_wf_handle(currentH, set->q);
 
 	prev->next = currentH;
 	prev = currentH;
@@ -516,6 +514,7 @@ prev->next = first;
       tds[t].id = t;
 // CHANGED
       tds[t].handle = &handles[t];
+      tds[t].set = set;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
 	{

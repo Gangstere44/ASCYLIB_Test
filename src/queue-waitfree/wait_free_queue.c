@@ -32,7 +32,7 @@ wf_segment_t * new_segment(uint64_t id) {
 	return new_seg;
 }
 
-cell_t* find_cell(wf_segment_t** sp, uint64_t cell_id) {
+cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 
 	wf_segment_t* s = *sp;
 
@@ -68,15 +68,18 @@ void advance_end_for_linearizability(uint64_t* E, uint64_t cid) {
 	} while(e < cid && !CAS_U64_bool(E, e, cid));
 }
 
-void init_wf_queue(volatile wf_queue_t* q) {
 
-	q->q = new_segment(0);
-	q->tailQ = 0;
-	q->headQ = 0;
+wf_queue_t* init_wf_queue(void) {
 
+	wf_queue_t* queue = malloc(sizeof(wf_queue_t));
+	queue->q = new_segment(0);
+	queue->tailQ = 0;
+	queue->headQ = 0;
+
+	return queue;
 }
 
-void init_wf_handle(volatile wf_handle_t* handle, wf_segment_t* init_seg) {
+void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg) {
 	
 		handle->head = init_seg;
 		handle->tail = init_seg;
@@ -93,12 +96,12 @@ void init_wf_handle(volatile wf_handle_t* handle, wf_segment_t* init_seg) {
 		handle->deq.id = 0;
 }
 
-uint64_t wf_queue_size(volatile wf_queue_t* q) {
+uint64_t wf_queue_size(wf_queue_t* q) {
 
 	return q->tailQ - q->headQ;	
 }
 
-bool wf_queue_contain(volatile wf_queue_t* q, void* val) {
+bool wf_queue_contain(wf_queue_t* q, void* val) {
 	
 	uint64_t currentPos = 0;
 	for(currentPos = q->headQ; currentPos <= q->tailQ; currentPos++) {
@@ -114,7 +117,7 @@ bool wf_queue_contain(volatile wf_queue_t* q, void* val) {
 
 // Enqueue functions
 
-void enqueue(volatile wf_queue_t* q, volatile wf_handle_t* h, void* v) {
+void enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
 	uint64_t cell_id = 0;
 	uint64_t p;
 	for(p = 0; p < PATIENCE; p++) {
@@ -129,13 +132,13 @@ bool try_to_claim_req(uint64_t* s, uint64_t id, uint64_t cell_id) {
 	return CAS_U64_bool(s, (0x8000000000000000 | id), (0x7FFFFFFFFFFFFFFF & cell_id));
 }
 
-void enq_commit(volatile wf_queue_t* q, cell_t* c, void* v, uint64_t cid) {
+void enq_commit(wf_queue_t* q, cell_t* c, void* v, uint64_t cid) {
 
 	advance_end_for_linearizability(&(q->tailQ), cid + 1);
 	c->val = v;
 }
 
-bool enq_fast(volatile wf_queue_t* q, volatile wf_handle_t* h, void* v, uint64_t* cid) {
+bool enq_fast(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t* cid) {
 	uint64_t i = FAI_U64(&(q->tailQ));
 	cell_t* c = find_cell(&(h->tail), i);
 	if(CAS_U64_bool(&(c->val), TAIL_CONST_VAL, v)) {
@@ -146,7 +149,7 @@ bool enq_fast(volatile wf_queue_t* q, volatile wf_handle_t* h, void* v, uint64_t
 	return false;
 }
 
-void enq_slow(volatile wf_queue_t* q, volatile wf_handle_t* h, void* v, uint64_t cell_id) {
+void enq_slow(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t cell_id) {
 
 	// we add a request to ourselves, like this one of our peer is able to help us
 	wf_enq_request_t* r = &(h->enq.req);
@@ -174,12 +177,12 @@ void enq_slow(volatile wf_queue_t* q, volatile wf_handle_t* h, void* v, uint64_t
 	enq_commit(q, c, v, id);
 }
 
-void* help_enq(volatile wf_queue_t* q, volatile wf_handle_t* h, cell_t* c, uint64_t i) {
+void* help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
 	if(!CAS_U64_bool(&(c->val), TAIL_CONST_VAL, HEAD_CONST_VAL) && c->val != (void*) HEAD_CONST_VAL) {
 		return c->val;
 	}
 	
-	wf_handle_t* p;
+	wf_handle_t* volatile p;
 	wf_enq_request_t* r;
 	if(c->enq == TAIL_ENQ_VAL) {
 			
@@ -229,7 +232,7 @@ void* help_enq(volatile wf_queue_t* q, volatile wf_handle_t* h, cell_t* c, uint6
 
 // dequeue functions
 
-void* dequeue(volatile wf_queue_t* q, volatile wf_handle_t* h) {
+void* dequeue(wf_queue_t* q, wf_handle_t* h) {
 	void* v = NULL;
 	uint64_t cell_id = 0;
 	
@@ -254,7 +257,7 @@ void* dequeue(volatile wf_queue_t* q, volatile wf_handle_t* h) {
 	return v;
 }
 
-void* deq_fast(volatile wf_queue_t* q, volatile wf_handle_t* h, uint64_t* id) {
+void* deq_fast(wf_queue_t* q, wf_handle_t* h, uint64_t* id) {
 	uint64_t i = FAI_U64(&(q->headQ));
 	cell_t* c = find_cell(&(h->head), i);
 	void* v = help_enq(q, h, c, i);
@@ -272,7 +275,7 @@ void* deq_fast(volatile wf_queue_t* q, volatile wf_handle_t* h, uint64_t* id) {
 	return HEAD_CONST_VAL;
 }
 
-void* deq_slow(volatile wf_queue_t* q, volatile wf_handle_t* h, uint64_t cid) {
+void* deq_slow(wf_queue_t* q, wf_handle_t* h, uint64_t cid) {
 	wf_deq_request_t* r = &(h->deq.req);
 	r->id = cid;
 	r->state.idx = cid;
@@ -290,7 +293,7 @@ void* deq_slow(volatile wf_queue_t* q, volatile wf_handle_t* h, uint64_t cid) {
 	
 }
 
-void help_deq(volatile wf_queue_t* q, volatile wf_handle_t* h, volatile wf_handle_t* helpee) {
+void help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
 	wf_deq_request_t* r = &(helpee->deq.req);
 	uint64_t s_pending = r->state.pending;
 	uint64_t s_idx = r->state.idx;
