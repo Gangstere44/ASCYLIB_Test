@@ -12,6 +12,7 @@
 #include "wait_free_queue.h"
 
 #define PATIENCE 10
+#define MAX_GARBAGE(n) (10 * n)
 
 // helper functions
 
@@ -60,6 +61,74 @@ cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 	return &(s->cells[cell_id % SEG_LENGTH]);
 }
 
+void cleanup(wf_queue* q, wf_handle_t* h) {
+	uint64_t = q->I;
+	wf_segment_t* e = h->head;
+	if(i = -1) {
+		return;
+	}
+	if(e->id - i < MAX_GARBAGE(1)) {
+		return;
+	}
+	if(!CAS_U64_bool(&q->I, i, -1)) {
+		return;
+	}
+	uint64_t s = q->tailQ;
+	wf_handle_t* hds[q->num_thr]; 
+	uint64_t j = 0;
+	wf_handle_t* p = NULL;
+	for(p = h->next; p != h && e->id > i; p = p->next) {
+		verify(&e, p->hzdp);
+		update(&p->head, &e, p);
+		update(&p->tail, &e, p);
+		hds[j++] = p;
+	}
+	
+	while(e->id > i && j > 0) {
+		verify(&e, hds[--j]->hzdp);
+	}
+	
+	if(e->id <= i) {
+		q->tailQ = s;
+		return;
+	}
+	
+	q->tailQ = e;
+	q->I = e->id;
+	
+	free_list(s, e);
+}
+
+void free_list(wf_segment_t* from, wf_segment_t* to) {
+	
+	wf_segment_t* i = NULL;
+	for(i = from; i != to; ) {
+		wf_segment_t* tmp = i;
+		i = i->next;
+		free(tmp);
+	}
+	
+}
+
+void update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {
+	wf_segment_t* n = *from;
+	if(n->id < (*to)->id) {
+		if(!CAS_U64_bool(from, n, *to)) {
+			n = *from;
+			if(n->id < (*to)->id) {
+				*to = n;
+			}
+		}
+		verify(to, h->hzdp);
+	}
+}
+
+void verify(wf_segment_t** seg, wf_segment_t* hzdp) {
+	if(hzdp && hzdp->id < seg->id) {
+		*seg = hzdp;
+	}
+}
+
 void advance_end_for_linearizability(uint64_t* E, uint64_t cid) {
 
 	uint64_t e;
@@ -69,12 +138,14 @@ void advance_end_for_linearizability(uint64_t* E, uint64_t cid) {
 }
 
 
-wf_queue_t* init_wf_queue(void) {
+wf_queue_t* init_wf_queue(uint64_t num_thr) {
 
 	wf_queue_t* queue = malloc(sizeof(wf_queue_t));
+	queue->num_thr = num_thr;
 	queue->q = new_segment(0);
 	queue->tailQ = 0;
 	queue->headQ = 0;
+	queue->I = 0;
 
 	return queue;
 }
@@ -84,6 +155,7 @@ void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg) {
 		handle->head = init_seg;
 		handle->tail = init_seg;
 		handle->next = NULL;
+		handle->hzdp = NULL;
 		handle->enq.peer = handle;
 		handle->enq.req.val = TAIL_CONST_VAL;
 		handle->enq.req.state.pending = 0;
@@ -118,6 +190,7 @@ bool wf_queue_contain(wf_queue_t* q, void* val) {
 // Enqueue functions
 
 void enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
+	h->hzdp = h->tail;
 	uint64_t cell_id = 0;
 	uint64_t p;
 	for(p = 0; p < PATIENCE; p++) {
@@ -126,6 +199,7 @@ void enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
 		}
 	}
 	enq_slow(q, h, v, cell_id);
+	h->hzdp = NULL;
 }
 
 bool try_to_claim_req(uint64_t* s, uint64_t id, uint64_t cell_id) {
@@ -233,6 +307,7 @@ void* help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
 // dequeue functions
 
 void* dequeue(wf_queue_t* q, wf_handle_t* h) {
+	h->hzdp = h->head;
 	void* v = NULL;
 	uint64_t cell_id = 0;
 	
@@ -254,6 +329,9 @@ void* dequeue(wf_queue_t* q, wf_handle_t* h) {
 		h->deq.peer = ((wf_handle_t*) h->deq.peer)->next;
 	}
 
+	h->hzdp = NULL;
+	cleanup(q, h);
+	
 	return v;
 }
 
@@ -304,6 +382,7 @@ void help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
 	}
 	
 	wf_segment_t* ha = helpee->head;
+	h->hzdp = ha;
 	s_idx = r->state.idx;
 	s_pending = r->state.pending;
 	uint64_t prior = id;

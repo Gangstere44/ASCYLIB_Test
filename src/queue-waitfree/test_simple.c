@@ -60,7 +60,7 @@
 #define DS_ADD(q,h,v)       enqueue(q, h, v)
 #define DS_REMOVE(q,h)      dequeue(q,h)
 #define DS_SIZE(q)          wf_queue_size(q)
-#define DS_NEW()           init_wf_queue()
+#define DS_NEW(n)           init_wf_queue(n)
 
 #define DS_TYPE             wf_queue_t
 #define DS_NODE             wf_segment_t
@@ -457,7 +457,7 @@ main(int argc, char **argv)
   
 
 
-  DS_TYPE* set = DS_NEW();
+  DS_TYPE* set = DS_NEW(num-threads);
   assert(set != NULL);
 
 

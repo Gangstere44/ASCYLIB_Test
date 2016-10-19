@@ -57,9 +57,11 @@ typedef struct wf_segment
 
 typedef struct wf_queue
 {
+	uint64_t num_thr;
 	wf_segment_t* volatile q;
 	uint64_t tailQ;
 	uint64_t headQ;
+	uint64_t I;
 } wf_queue_t;
 
 typedef struct wf_handle
@@ -67,6 +69,7 @@ typedef struct wf_handle
 	wf_segment_t* head;
 	wf_segment_t* tail;
 	struct wf_handle* next;
+	wf_segment_t* hzdp;
 	struct 
 	{
 		wf_enq_request_t req;
@@ -88,7 +91,11 @@ wf_segment_t* new_segment(uint64_t id);
 cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id);
 void advance_end_for_linearizability(uint64_t* E, uint64_t cid);
 
-wf_queue_t* init_wf_queue(void);
+void cleanup(wf_queue* q, wf_handle_t* h);
+void update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h);
+void verify(wf_segment_t** seg, wf_segment_t* hzdp);
+
+wf_queue_t* init_wf_queue(int num_thr);
 void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg);
 
 uint64_t wf_queue_size(wf_queue_t* q);
