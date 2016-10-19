@@ -16,7 +16,7 @@
 
 // helper functions
 
-wf_segment_t * new_segment(uint64_t id) {
+wf_segment_t * wf_new_segment(uint64_t id) {
 
 	wf_segment_t* new_seg = malloc(sizeof(wf_segment_t));
 	new_seg->id = id;
@@ -33,7 +33,7 @@ wf_segment_t * new_segment(uint64_t id) {
 	return new_seg;
 }
 
-cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
+cell_t* wf_find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 
 	wf_segment_t* s = *sp;
 
@@ -44,7 +44,7 @@ cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 
 		if(next == NULL) {
 
-			wf_segment_t* tmp = new_segment(i + 1);
+			wf_segment_t* tmp = wf_new_segment(i + 1);
 			if(!CAS_U64_bool(&s->next, NULL, tmp)) {
 
 				free(tmp);
@@ -61,8 +61,8 @@ cell_t* find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 	return &(s->cells[cell_id % SEG_LENGTH]);
 }
 
-void cleanup(wf_queue* q, wf_handle_t* h) {
-	uint64_t = q->I;
+void wf_cleanup(wf_queue_t* q, wf_handle_t* h) {
+	uint64_t i = q->I;
 	wf_segment_t* e = h->head;
 	if(i = -1) {
 		return;
@@ -78,14 +78,14 @@ void cleanup(wf_queue* q, wf_handle_t* h) {
 	uint64_t j = 0;
 	wf_handle_t* p = NULL;
 	for(p = h->next; p != h && e->id > i; p = p->next) {
-		verify(&e, p->hzdp);
-		update(&p->head, &e, p);
-		update(&p->tail, &e, p);
+		wf_verify(&e, p->hzdp);
+		wf_update(&p->head, &e, p);
+		wf_update(&p->tail, &e, p);
 		hds[j++] = p;
 	}
 	
 	while(e->id > i && j > 0) {
-		verify(&e, hds[--j]->hzdp);
+		wf_verify(&e, hds[--j]->hzdp);
 	}
 	
 	if(e->id <= i) {
@@ -96,10 +96,10 @@ void cleanup(wf_queue* q, wf_handle_t* h) {
 	q->tailQ = e;
 	q->I = e->id;
 	
-	free_list(s, e);
+	wf_free_list(s, e);
 }
 
-void free_list(wf_segment_t* from, wf_segment_t* to) {
+void wf_free_list(wf_segment_t* from, wf_segment_t* to) {
 	
 	wf_segment_t* i = NULL;
 	for(i = from; i != to; ) {
@@ -110,7 +110,7 @@ void free_list(wf_segment_t* from, wf_segment_t* to) {
 	
 }
 
-void update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {
+void wf_update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {
 	wf_segment_t* n = *from;
 	if(n->id < (*to)->id) {
 		if(!CAS_U64_bool(from, n, *to)) {
@@ -119,17 +119,17 @@ void update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {
 				*to = n;
 			}
 		}
-		verify(to, h->hzdp);
+		wf_verify(to, h->hzdp);
 	}
 }
 
-void verify(wf_segment_t** seg, wf_segment_t* hzdp) {
-	if(hzdp && hzdp->id < seg->id) {
+void wf_verify(wf_segment_t** seg, wf_segment_t* hzdp) {
+	if(hzdp && hzdp->id < (*seg)->id) {
 		*seg = hzdp;
 	}
 }
 
-void advance_end_for_linearizability(uint64_t* E, uint64_t cid) {
+void wf_advance_end_for_linearizability(uint64_t* E, uint64_t cid) {
 
 	uint64_t e;
 	do {
@@ -142,7 +142,7 @@ wf_queue_t* init_wf_queue(uint64_t num_thr) {
 
 	wf_queue_t* queue = malloc(sizeof(wf_queue_t));
 	queue->num_thr = num_thr;
-	queue->q = new_segment(0);
+	queue->q = wf_new_segment(0);
 	queue->tailQ = 0;
 	queue->headQ = 0;
 	queue->I = 0;
@@ -178,7 +178,7 @@ bool wf_queue_contain(wf_queue_t* q, void* val) {
 	uint64_t currentPos = 0;
 	for(currentPos = q->headQ; currentPos <= q->tailQ; currentPos++) {
 		
-		cell_t* c = find_cell(&(q->q), currentPos);
+		cell_t* c = wf_find_cell(&(q->q), currentPos);
 		if(val == c->val) {
 			return true;
 		}
@@ -189,32 +189,32 @@ bool wf_queue_contain(wf_queue_t* q, void* val) {
 
 // Enqueue functions
 
-void enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
+void wf_enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
 	h->hzdp = h->tail;
 	uint64_t cell_id = 0;
 	uint64_t p;
 	for(p = 0; p < PATIENCE; p++) {
-		if(enq_fast(q, h, v, &cell_id)) {
+		if(wf_enq_fast(q, h, v, &cell_id)) {
 			return;
 		}
 	}
-	enq_slow(q, h, v, cell_id);
+	wf_enq_slow(q, h, v, cell_id);
 	h->hzdp = NULL;
 }
 
-bool try_to_claim_req(uint64_t* s, uint64_t id, uint64_t cell_id) {
+bool wf_try_to_claim_req(uint64_t* s, uint64_t id, uint64_t cell_id) {
 	return CAS_U64_bool(s, (0x8000000000000000 | id), (0x7FFFFFFFFFFFFFFF & cell_id));
 }
 
-void enq_commit(wf_queue_t* q, cell_t* c, void* v, uint64_t cid) {
+void wf_enq_commit(wf_queue_t* q, cell_t* c, void* v, uint64_t cid) {
 
-	advance_end_for_linearizability(&(q->tailQ), cid + 1);
+	wf_advance_end_for_linearizability(&(q->tailQ), cid + 1);
 	c->val = v;
 }
 
-bool enq_fast(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t* cid) {
+bool wf_enq_fast(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t* cid) {
 	uint64_t i = FAI_U64(&(q->tailQ));
-	cell_t* c = find_cell(&(h->tail), i);
+	cell_t* c = wf_find_cell(&(h->tail), i);
 	if(CAS_U64_bool(&(c->val), TAIL_CONST_VAL, v)) {
 		return true;
 	}
@@ -223,7 +223,7 @@ bool enq_fast(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t* cid) {
 	return false;
 }
 
-void enq_slow(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t cell_id) {
+void wf_enq_slow(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t cell_id) {
 
 	// we add a request to ourselves, like this one of our peer is able to help us
 	wf_enq_request_t* r = &(h->enq.req);
@@ -237,21 +237,21 @@ void enq_slow(wf_queue_t* q, wf_handle_t* h, void* v, uint64_t cell_id) {
 		
 		// we take the next possible cell
 		uint64_t i = FAI_U64(&(q->tailQ));
-		cell_t* c = find_cell(&tmp_tail, i);
+		cell_t* c = wf_find_cell(&tmp_tail, i);
 		// and we try to claim it
 		if(CAS_U64_bool(&(c->enq), TAIL_ENQ_VAL, r) && c->val == TAIL_CONST_VAL) {
-			try_to_claim_req((uint64_t*) &(r->state), cell_id, i);
+			wf_try_to_claim_req((uint64_t*) &(r->state), cell_id, i);
 			break;
 		}
 	} while(r->state.pending);
 	
 	uint64_t id = r->state.id;
-	cell_t* c = find_cell(&(h->tail), id);
+	cell_t* c = wf_find_cell(&(h->tail), id);
 	
-	enq_commit(q, c, v, id);
+	wf_enq_commit(q, c, v, id);
 }
 
-void* help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
+void* wf_help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
 	if(!CAS_U64_bool(&(c->val), TAIL_CONST_VAL, HEAD_CONST_VAL) && c->val != (void*) HEAD_CONST_VAL) {
 		return c->val;
 	}
@@ -296,9 +296,9 @@ void* help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
 		if(c->val == HEAD_CONST_VAL && q->tailQ <= i) {
 			return EMPTY;
 		}
-	} else if (try_to_claim_req((uint64_t*) &(r->state), r->state.id, i) ||
+	} else if (wf_try_to_claim_req((uint64_t*) &(r->state), r->state.id, i) ||
 					((r->state.pending == 0 && r->state.id == i) && c->val == HEAD_CONST_VAL)) {
-		enq_commit(q, c, r->val, i);
+		wf_enq_commit(q, c, r->val, i);
 	}
 	
 	return c->val;
@@ -306,14 +306,14 @@ void* help_enq(wf_queue_t* q, wf_handle_t* h, cell_t* c, uint64_t i) {
 
 // dequeue functions
 
-void* dequeue(wf_queue_t* q, wf_handle_t* h) {
+void* wf_dequeue(wf_queue_t* q, wf_handle_t* h) {
 	h->hzdp = h->head;
 	void* v = NULL;
 	uint64_t cell_id = 0;
 	
 	int p = 0;
 	for(p = PATIENCE; p >= 0; p--) {
-		v = deq_fast(q, h, &cell_id);
+		v = wf_deq_fast(q, h, &cell_id);
 		
 		if(v != HEAD_CONST_VAL)  {
 			break;
@@ -321,24 +321,24 @@ void* dequeue(wf_queue_t* q, wf_handle_t* h) {
 	}
 	
 	if(v == HEAD_CONST_VAL) {
-		v = deq_slow(q, h, cell_id);
+		v = wf_deq_slow(q, h, cell_id);
 	}
 	
 	if(v != EMPTY) {
-		help_deq(q, h, (wf_handle_t*) h->deq.peer);
+		wf_help_deq(q, h, (wf_handle_t*) h->deq.peer);
 		h->deq.peer = ((wf_handle_t*) h->deq.peer)->next;
 	}
 
 	h->hzdp = NULL;
-	cleanup(q, h);
+	wf_cleanup(q, h);
 	
 	return v;
 }
 
-void* deq_fast(wf_queue_t* q, wf_handle_t* h, uint64_t* id) {
+void* wf_deq_fast(wf_queue_t* q, wf_handle_t* h, uint64_t* id) {
 	uint64_t i = FAI_U64(&(q->headQ));
-	cell_t* c = find_cell(&(h->head), i);
-	void* v = help_enq(q, h, c, i);
+	cell_t* c = wf_find_cell(&(h->head), i);
+	void* v = wf_help_enq(q, h, c, i);
 	
 	if(v == EMPTY) {
 		return EMPTY;
@@ -353,25 +353,25 @@ void* deq_fast(wf_queue_t* q, wf_handle_t* h, uint64_t* id) {
 	return HEAD_CONST_VAL;
 }
 
-void* deq_slow(wf_queue_t* q, wf_handle_t* h, uint64_t cid) {
+void* wf_deq_slow(wf_queue_t* q, wf_handle_t* h, uint64_t cid) {
 	wf_deq_request_t* r = &(h->deq.req);
 	r->id = cid;
 	r->state.idx = cid;
 	r->state.pending = 1;
 	
-	help_deq(q, h, h);
+	wf_help_deq(q, h, h);
 	
 	uint64_t i = r->state.idx;
-	cell_t* c = find_cell(&(h->head), i);
+	cell_t* c = wf_find_cell(&(h->head), i);
 	void* v = c->val;
 	
-	advance_end_for_linearizability(&(q->headQ), i + 1);
+	wf_advance_end_for_linearizability(&(q->headQ), i + 1);
 	
 	return (v == HEAD_CONST_VAL ? EMPTY : v);
 	
 }
 
-void help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
+void wf_help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
 	wf_deq_request_t* r = &(helpee->deq.req);
 	uint64_t s_pending = r->state.pending;
 	uint64_t s_idx = r->state.idx;
@@ -394,9 +394,9 @@ void help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
 		wf_segment_t* hc = NULL;
 		for (hc = ha; !cand && s_idx == prior; ) {
 			
-			cell_t* c = find_cell(&hc, ++i);
+			cell_t* c = wf_find_cell(&hc, ++i);
 			// TODO
-			void* v = help_enq(q, h, c, i);
+			void* v = wf_help_enq(q, h, c, i);
 			
 			if(v == EMPTY || (v != HEAD_CONST_VAL && c->deq == TAIL_DEQ_VAL)) {
 				cand = i;
@@ -417,7 +417,7 @@ void help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee) {
 			return;
 		}
 		
-		cell_t* c = find_cell(&ha, s_idx);
+		cell_t* c = wf_find_cell(&ha, s_idx);
 		
 		if(c->val == HEAD_CONST_VAL || CAS_U64_bool(&(c->deq), TAIL_DEQ_VAL, r) || c->deq == r) {
 			CAS_U64_bool((uint64_t*) &(r->state), ((s_pending << 63) | s_idx), (0x7FFFFFFFFFFFFFFF & s_idx));

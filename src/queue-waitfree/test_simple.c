@@ -57,8 +57,8 @@
 
 // CHANGED
 #define DS_CONTAINS(q,v)    wf_queue_contains(q,v)
-#define DS_ADD(q,h,v)       enqueue(q, h, v)
-#define DS_REMOVE(q,h)      dequeue(q,h)
+#define DS_ADD(q,h,v)       wf_enqueue(q, h, v)
+#define DS_REMOVE(q,h)      wf_dequeue(q,h)
 #define DS_SIZE(q)          wf_queue_size(q)
 #define DS_NEW(n)           init_wf_queue(n)
 
@@ -457,7 +457,7 @@ main(int argc, char **argv)
   
 
 
-  DS_TYPE* set = DS_NEW(num-threads);
+  DS_TYPE* set = DS_NEW(num_threads);
   assert(set != NULL);
 
 
