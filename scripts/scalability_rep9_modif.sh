@@ -51,14 +51,14 @@ shift;
 prog9="$1";
 shift;
 params="$@";
-
-
+if false
+then
 prog=$prog1;
 echo "$prog1"
 echo "#cores  throughput  %linear scalability"
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -75,7 +75,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -92,7 +92,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -109,7 +109,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -126,7 +126,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -143,7 +143,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -160,7 +160,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -177,7 +177,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -194,7 +194,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -211,7 +211,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -228,7 +228,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -245,7 +245,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -262,7 +262,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -279,7 +279,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -296,7 +296,7 @@ echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -313,7 +313,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
@@ -323,14 +323,14 @@ do
     done;
 
     printf "\n"
-
+fi
 prog1=$prog9
 echo "$prog1"
 echo "#cores  throughput  %linear scalability"
 prog=$prog1;
 printf "%-8d" 1;
 thr1a=$($run_script ./$prog $params -n1);
-printf "%-12d" $thr1a;
+printf "%-12f" $thr1a;
 printf "%-8.2f" 100.00;
 printf "%-12d" 1;
 printf "\n"
@@ -347,7 +347,7 @@ do
     thr1=$thr1a;
 
     thr=$($run_script ./$prog $params -n$c);
-    printf "%-12d" $thr;
+    printf "%-12f" $thr;
     scl=$(echo "$thr/$thr1" | bc -l);
     linear_p=$(echo "100*(1-(($c-$scl)/$c))" | bc -l);
     printf "%-8.2f" $linear_p;
