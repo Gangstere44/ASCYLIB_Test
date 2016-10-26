@@ -65,6 +65,19 @@ delete_req_t* init_delete_req(void) {
 	
 }
 
+uint64_t stack_size(wf_stack_t* s) {
+	
+	uint64_t n_elem = 0;
+	node_t* tmp = s->top;
+	
+	while(tmp->push_id != -1) {
+		n_elem++;
+		tmp = tmp->prev;
+	}
+	
+	return n_elem;
+	
+}
 
 void push(wf_stack_t* s, uint64_t tid, void* value) {
 	

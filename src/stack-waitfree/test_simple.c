@@ -47,20 +47,23 @@
 #  include <sys/procset.h>
 #endif
 
+// ADDED
+#include "wait_free_stack.h"
 #include "intset.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
  * ################################################################### */
 
-#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
-#define DS_ADD(s,k,t)       mstack_add(s, k, t)
-#define DS_REMOVE(s)        mstack_remove(s)
-#define DS_SIZE(s)          mstack_size(s)
-#define DS_NEW()            mstack_new()
+ // CHANGED
+//#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
+#define DS_ADD(stack,tid,val)       push(stack,tid,val) 
+#define DS_REMOVE(stack,tid)        pop(stack,tid)
+#define DS_SIZE(stack)          	stack_size(stack)
+#define DS_NEW(num_thr)            	init_wf_stack(num_thr)
 
-#define DS_TYPE             mstack_t
-#define DS_NODE             mstack_node_t
+#define DS_TYPE            			wf_stack_t
+#define DS_NODE           			node_t
 
 /* ################################################################### *
  * GLOBALS
@@ -183,7 +186,7 @@ test(void* thread)
 #if INITIALIZE_FROM_ONE == 1
   num_elems_thread = (ID == 0) * initial;
 #endif
-    
+    /*
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
@@ -193,6 +196,7 @@ test(void* thread)
 	  i--;
 	}
     }
+	*/
   MEM_BARRIER;
 
   barrier_cross(&barrier);
@@ -211,7 +215,41 @@ test(void* thread)
 
   while (stop == 0) 
     {
-      TEST_LOOP_ONLY_UPDATES();
+      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); 
+      if (unlikely(c < scale_put))            
+      {                 
+        key = (c & rand_max) + rand_min;
+        //key = (c % 5) + rand_min;          
+        int res;                
+        START_TS(1);    
+        res = 1;              
+        DS_ADD(set, ID, key);          
+        if(res)           
+        {               
+          END_TS(1, my_putting_count_succ);       
+          ADD_DUR(my_putting_succ);         
+          my_putting_count_succ++;          
+        }               
+        END_TS_ELSE(4, my_putting_count - my_putting_count_succ,    
+        my_putting_fail);         
+        my_putting_count++;            
+      }                 
+      else if(unlikely(c <= scale_rem))         
+      {                 
+        void* removed;              
+        START_TS(2);              
+        removed = DS_REMOVE(set, ID);           
+        if(removed != ((void*) 0))              
+        {               
+          END_TS(2, my_removing_count_succ);        
+          ADD_DUR(my_removing_succ);          
+          my_removing_count_succ++;         
+        }               
+        END_TS_ELSE(5, my_removing_count - my_removing_count_succ,  
+        my_removing_fail);          
+        my_removing_count++;            
+      }                 
+      cpause((num_threads-1)*32); 
     }
 
 
@@ -534,10 +572,12 @@ main(int argc, char **argv)
 #define LLU long long unsigned int
 
   int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
-  if (size_after != (initial + pr))
+  
+  // CHANGED
+  if (size_after != pr)
     {
-      printf("// WRONG size. %zu + %d != %zu\n", initial, pr, size_after);
-      assert(size_after == (initial + pr));
+      printf("// WRONG size.  %d != %zu\n", pr, size_after);
+      assert(size_after == pr);
     }
 
   printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");

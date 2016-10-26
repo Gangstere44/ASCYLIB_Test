@@ -58,12 +58,14 @@ node_t* init_node(void* value, int64_t push_tid);
 push_op_t* init_push_op(void);
 delete_req_t* init_delete_req(void);
 
+uint64_t stack_size(wf_stack_t* s);
+
 void push(wf_stack_t* s, int64_t tid, void* value);
 void help(wf_stack_t* s,push_op_t* request);
 void attach_node(wf_stack_t* s,push_op_t* request);
 void update_top(wf_stack_t* s);
 
-node_t* pop(wf_stack_t* s);
+node_t* pop(wf_stack_t* s, int64_t tid);
 void try_clean_up(wf_stack_t* s, node_t* n);
 void help_finish_delete(wf_stack_t* s);
 
