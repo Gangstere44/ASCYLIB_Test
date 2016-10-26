@@ -51,8 +51,9 @@ shift;
 prog9="$1";
 shift;
 params="$@";
-if true
-then
+
+sec=1000000;
+
 prog=$prog1;
 echo "$prog1"
 echo "#cores  throughput  %linear scalability"
@@ -323,7 +324,7 @@ do
     done;
 
     printf "\n"
-fi
+
 prog1=$prog9
 echo "$prog1"
 echo "#cores  throughput  %linear scalability"

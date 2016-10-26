@@ -215,7 +215,8 @@ test(void* thread)
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); 
       if (unlikely(c < scale_put))            
       {                 
-        key = (c & rand_max) + rand_min;          
+        key = (c & rand_max) + rand_min;
+        //key = (c % 5) + rand_min;          
         int res;                
         START_TS(1);    
         res = 1;              
@@ -235,7 +236,7 @@ test(void* thread)
         void* removed;              
         START_TS(2);              
         removed = DS_REMOVE(set, h);           
-        if(removed != ((void*) 3))              
+        if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
           ADD_DUR(my_removing_succ);          
@@ -247,6 +248,14 @@ test(void* thread)
       }                 
       cpause((num_threads-1)*32); 
     }
+
+  #ifdef RECORD_F_S
+  wf_reclaim_records(set, h);
+  #endif
+
+  #ifdef CHECK_CORRECTNESS
+  wf_reclaim_correctness(set, h);
+  #endif
 
   barrier_cross(&barrier);
   RR_STOP_SIMPLE();
@@ -477,16 +486,18 @@ main(int argc, char **argv)
   
 // ADDED : HANDLES CREATION AND QUEUE
 
+uint64_t tid = 0;
+
 wf_handle_t handles[num_threads];
 wf_handle_t* volatile first = &handles[num_threads - 1];
-init_wf_handle(first, set->q);
+init_wf_handle(first, set->q, tid++);
 wf_handle_t* volatile prev = first;
 wf_handle_t* volatile currentH = NULL;
 uint64_t hn;
 for(hn = 0; hn < num_threads - 1; hn++) {
 	
 	currentH = &handles[hn];
-	init_wf_handle(currentH, set->q);
+	init_wf_handle(currentH, set->q, tid++);
 
 	prev->next = currentH;
 	prev = currentH;
@@ -517,13 +528,18 @@ prev->next = first;
       tds[t].set = set;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
-	{
-	  printf("ERROR; return code from pthread_create() is %d\n", rc);
-	  exit(-1);
-	}
+    	{
+    	  printf("ERROR; return code from pthread_create() is %d\n", rc);
+    	  exit(-1);
+    	}
         
     }
 
+printf("check ring correctness \n");
+
+for(t = 0; t < num_threads; t++) {
+  printf("thread %lu -> thread %lu \n", tds[t].handle->tid, tds[t].handle->next->tid);
+}
 
     
   /* Free attribute and wait for the other threads */
@@ -546,6 +562,8 @@ prev->next = first;
 	  exit(-1);
 	}
     }
+
+
 
   free(tds);
     
@@ -589,7 +607,8 @@ prev->next = first;
   long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%-7zu %-8lu %-8lu %-8lu %-8lu %-8lu %-8lu\n", num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
-    
+     
+ 
 #define LLU long long unsigned int
 
   int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
@@ -597,8 +616,8 @@ prev->next = first;
   // CHANGED
   if(size_after != pr)
     {
-      printf("// WRONG size. %zu + %d != %zu\n", initial, pr, size_after);
-      assert(size_after == (initial + pr));
+      printf("// WRONG size. %d != %zu\n", pr, size_after);
+      assert(size_after == pr);
     }
 
   printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
@@ -619,13 +638,27 @@ prev->next = first;
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
   printf("#Mops %.3f\n", throughput / 1e6);
-
   RR_PRINT_UNPROTECTED(RAPL_PRINT_POW);
   RR_PRINT_CORRECTED();
   RETRY_STATS_PRINT(total, putting_count_total, removing_count_total, putting_count_total_succ + removing_count_total_succ);    
   LATENCY_DISTRIBUTION_PRINT();
-    
+
+  // ADDED
+  // print % slow op
+  #ifdef RECORD_F_S
+  double ratio_enq = ((double) set->tot_slow_enq) / (set->tot_slow_enq + set->tot_fast_enq);
+  double ratio_deq = ((double) set->tot_slow_deq) / (set->tot_slow_deq + set->tot_fast_deq);
+  printf("Amount of slow operations : \n \t Slow enqueue : \t %lf \n \t Slow dequeue : \t %lf \n\n", ratio_enq, ratio_deq);
+  #endif
+
+  #ifdef CHECK_CORRECTNESS
+  wf_sum_queue(set);
+  printf("Correctness check : \n \t enq_sum = %ld == deq_sum = %ld ? s1 - s2 = %ld\n", set->tot_sum_enq, set->tot_sum_deq, set->tot_sum_enq - set->tot_sum_deq);
+  #endif
+
   pthread_exit(NULL);
     
+
+
   return 0;
 }
