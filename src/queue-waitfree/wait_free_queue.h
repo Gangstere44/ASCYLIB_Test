@@ -11,7 +11,6 @@
 #define SEG_LENGTH (1 << 10)
 
 
-
 typedef struct wf_enq_request
 {
 	void* val;
