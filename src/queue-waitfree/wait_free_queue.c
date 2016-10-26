@@ -55,53 +55,65 @@ cell_t* wf_find_cell(wf_segment_t* volatile * sp, uint64_t cell_id) {
 		}
 
 		s = next;
+
 	}
 
 	*sp = s;
+
 	return &(s->cells[cell_id % SEG_LENGTH]);
 }
 
 void wf_cleanup(wf_queue_t* q, wf_handle_t* h) {
 	uint64_t i = q->I;
 	wf_segment_t* e = h->head;
-	if(i = -1) {
+
+
+	if(i == -1) {
 		return;
 	}
-	if(e->id - i < MAX_GARBAGE(1)) {
+	if(e->id - i < MAX_GARBAGE(2)) {
 		return;
 	}
 	if(!CAS_U64_bool(&q->I, i, -1)) {
 		return;
 	}
-	uint64_t s = q->tailQ;
+
+	wf_segment_t* s = q->q;
 	wf_handle_t* hds[q->num_thr]; 
 	uint64_t j = 0;
 	wf_handle_t* p = NULL;
+
 	for(p = h->next; p != h && e->id > i; p = p->next) {
 		wf_verify(&e, p->hzdp);
 		wf_update(&p->head, &e, p);
 		wf_update(&p->tail, &e, p);
 		hds[j++] = p;
 	}
+
 	
 	while(e->id > i && j > 0) {
 		wf_verify(&e, hds[--j]->hzdp);
 	}
+
 	
 	if(e->id <= i) {
-		q->tailQ = s;
+		q->q = s;
 		return;
 	}
 	
-	q->tailQ = e;
+
+	q->q = e;
 	q->I = e->id;
 	
+
 	wf_free_list(s, e);
+
 }
 
 void wf_free_list(wf_segment_t* from, wf_segment_t* to) {
 	
 	wf_segment_t* i = NULL;
+	uint64_t g = 0;
 	for(i = from; i != to; ) {
 		wf_segment_t* tmp = i;
 		i = i->next;
@@ -111,6 +123,8 @@ void wf_free_list(wf_segment_t* from, wf_segment_t* to) {
 }
 
 void wf_update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {
+
+
 	wf_segment_t* n = *from;
 	if(n->id < (*to)->id) {
 		if(!CAS_U64_bool(from, n, *to)) {
@@ -124,6 +138,7 @@ void wf_update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h)
 }
 
 void wf_verify(wf_segment_t** seg, wf_segment_t* hzdp) {
+
 	if(hzdp && hzdp->id < (*seg)->id) {
 		*seg = hzdp;
 	}
@@ -147,15 +162,28 @@ wf_queue_t* init_wf_queue(uint64_t num_thr) {
 	queue->headQ = 0;
 	queue->I = 0;
 
+	#ifdef CHECK_CORRECTNESS
+	queue->tot_sum_enq = 0;
+	queue->tot_sum_deq = 0;
+	#endif
+
+	#ifdef RECORD_F_S
+	queue->tot_fast_enq = 0;
+	queue->tot_slow_enq = 0;
+	queue->tot_fast_deq = 0;
+	queue->tot_slow_deq = 0;
+	#endif
+
 	return queue;
 }
 
-void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg) {
+void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg, uint64_t tid) {
 	
 		handle->head = init_seg;
 		handle->tail = init_seg;
 		handle->next = NULL;
 		handle->hzdp = NULL;
+		handle->tid = tid;
 		handle->enq.peer = handle;
 		handle->enq.req.val = TAIL_CONST_VAL;
 		handle->enq.req.state.pending = 0;
@@ -166,6 +194,18 @@ void init_wf_handle(wf_handle_t* handle, wf_segment_t* init_seg) {
 		handle->deq.req.state.pending = 0;
 		handle->deq.req.state.idx = 0;
 		handle->deq.id = 0;
+
+		#ifdef CHECK_CORRECTNESS
+		handle->sum_enq = 0;
+		handle->sum_deq = 0;
+		#endif
+
+		#ifdef RECORD_F_S
+		handle->fast_enq = 0;
+		handle->slow_enq = 0;
+		handle->fast_deq = 0;
+		handle->slow_deq = 0;
+		#endif
 }
 
 uint64_t wf_queue_size(wf_queue_t* q) {
@@ -187,18 +227,72 @@ bool wf_queue_contain(wf_queue_t* q, void* val) {
 	return false;
 }
 
+void wf_reclaim_records(wf_queue_t* q, wf_handle_t* h) {
+
+	#ifdef RECORD_F_S
+	while(!CAS_U64_bool(&q->tot_fast_enq, q->tot_fast_enq, (q->tot_fast_enq + h->fast_enq)));
+
+	while(!CAS_U64_bool(&q->tot_slow_enq, q->tot_slow_enq, (q->tot_slow_enq + h->slow_enq)));
+
+	while(!CAS_U64_bool(&q->tot_fast_deq, q->tot_fast_deq, (q->tot_fast_deq + h->fast_deq)));
+
+	while(!CAS_U64_bool(&q->tot_slow_deq, q->tot_slow_deq, (q->tot_slow_deq + h->slow_deq)));
+	#endif
+}
+
+void wf_reclaim_correctness(wf_queue_t* q, wf_handle_t* h) {
+
+	#ifdef CHECK_CORRECTNESS
+	while(!CAS_U64_bool(&q->tot_sum_enq, q->tot_sum_enq, (q->tot_sum_enq + h->sum_enq)));
+
+	while(!CAS_U64_bool(&q->tot_sum_deq, q->tot_sum_deq, (q->tot_sum_deq + h->sum_deq)));
+	#endif
+}
+
+void wf_sum_queue(wf_queue_t* q) {
+
+	#ifdef CHECK_CORRECTNESS
+	uint64_t i;
+	uint64_t tmp_sum = 0;
+	wf_segment_t* s = q->q;
+	for(i = q->headQ; i < q->tailQ; i++) {
+		cell_t* c = wf_find_cell(&s, i);
+		tmp_sum += c->val;
+	}
+
+	while(!CAS_U64_bool(&q->tot_sum_deq, q->tot_sum_deq, (q->tot_sum_deq + tmp_sum)));
+	#endif
+
+}
+
 // Enqueue functions
 
 void wf_enqueue(wf_queue_t* q, wf_handle_t* h, void* v) {
+
+	#ifdef CHECK_CORRECTNESS
+	h->sum_enq += v;
+	#endif
+
 	h->hzdp = h->tail;
 	uint64_t cell_id = 0;
 	uint64_t p;
 	for(p = 0; p < PATIENCE; p++) {
 		if(wf_enq_fast(q, h, v, &cell_id)) {
+
+			#ifdef RECORD_F_S
+			h->fast_enq++;
+			#endif
+
 			return;
 		}
 	}
 	wf_enq_slow(q, h, v, cell_id);
+
+
+	#ifdef RECORD_F_S
+	h->slow_enq++;
+	#endif
+
 	h->hzdp = NULL;
 }
 
@@ -322,12 +416,25 @@ void* wf_dequeue(wf_queue_t* q, wf_handle_t* h) {
 	
 	if(v == HEAD_CONST_VAL) {
 		v = wf_deq_slow(q, h, cell_id);
+
+		#ifdef RECORD_F_S
+		h->slow_deq++;
+		#endif
+	} else {
+		#ifdef RECORD_F_S
+		h->fast_deq++;
+		#endif
 	}
 	
 	if(v != EMPTY) {
 		wf_help_deq(q, h, (wf_handle_t*) h->deq.peer);
 		h->deq.peer = ((wf_handle_t*) h->deq.peer)->next;
 	}
+
+
+	#ifdef CHECK_CORRECTNESS
+	h->sum_deq += v;
+	#endif
 
 	h->hzdp = NULL;
 	wf_cleanup(q, h);
