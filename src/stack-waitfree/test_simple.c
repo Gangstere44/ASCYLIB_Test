@@ -56,6 +56,7 @@
  * ################################################################### */
 
  // CHANGED
+
 //#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
 #define DS_ADD(stack,tid,val)       push(stack,tid,val) 
 #define DS_REMOVE(stack,tid)        pop(stack,tid)
@@ -161,9 +162,9 @@ test(void* thread)
     
   seeds = seed_rand();
 #if GC == 1
-  alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(alloc != NULL);
-  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  alloc_wf = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc_wf != NULL);
+  ssmem_alloc_init_fs_size(alloc_wf, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
 #endif
     
 
@@ -213,17 +214,18 @@ test(void* thread)
 
   RR_START_SIMPLE();
 
+
   while (stop == 0) 
     {
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); 
       if (unlikely(c < scale_put))            
       {                 
-        key = (c & rand_max) + rand_min;
-        //key = (c % 5) + rand_min;          
+       // key = (c & rand_max) + rand_min;
+        key = (c % 5) + rand_min;    
         int res;                
         START_TS(1);    
         res = 1;              
-        DS_ADD(set, ID, key);          
+        DS_ADD(set, ID, (void*) key);   
         if(res)           
         {               
           END_TS(1, my_putting_count_succ);       
@@ -238,7 +240,8 @@ test(void* thread)
       {                 
         void* removed;              
         START_TS(2);              
-        removed = DS_REMOVE(set, ID);           
+        removed = DS_REMOVE(set, ID);   
+
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -256,10 +259,13 @@ test(void* thread)
   barrier_cross(&barrier);
   RR_STOP_SIMPLE();
 
+
+
   if (!ID)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
+
     }
 
   barrier_cross(&barrier);
@@ -290,7 +296,7 @@ test(void* thread)
   SSPFDTERM();
 #if GC == 1
   ssmem_term();
-  free(alloc);
+  free(alloc_wf);
 #endif
   THREAD_END();
   pthread_exit(NULL);
@@ -460,7 +466,7 @@ main(int argc, char **argv)
     
   stop = 0;
     
-  DS_TYPE* set = DS_NEW();
+  DS_TYPE* set = DS_NEW(num_threads);
   assert(set != NULL);
 
   /* Initializes the local data */
@@ -571,6 +577,7 @@ main(int argc, char **argv)
     
 #define LLU long long unsigned int
 
+  printf("success %lu, unsuccess %lu \n", putting_count_total_succ, removing_count_total_succ);
   int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
   
   // CHANGED

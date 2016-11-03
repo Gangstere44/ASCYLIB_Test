@@ -23,6 +23,7 @@
 
 #include "intset.h"
 
+/*
 inline sval_t
 mstack_contains(mstack_t *set, skey_t key)
 {
@@ -40,3 +41,4 @@ mstack_remove(mstack_t *set)
 {
   return mstack_treiber_delete(set);
 }
+*/
