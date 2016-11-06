@@ -26,16 +26,12 @@ typedef struct node {
 	volatile uint64_t index;
 	volatile uint64_t counter;
 
-	int bob;
-	int sam;
-	
-	
 } node_t;
 
 typedef struct push_op {
 	
 	uint64_t phase;
-	bool pushed;
+	volatile bool pushed;
 	node_t* node;
 	
 } push_op_t;
@@ -53,7 +49,7 @@ typedef struct wf_stack {
 	
 	uint64_t num_thr;
 	node_t sentinel;
-	node_t* top;
+	node_t* volatile top;
 	push_op_t* volatile * announces; 
 	delete_req_t* volatile * all_delete_requests;
 	volatile uint64_t phase_counter_push_req;

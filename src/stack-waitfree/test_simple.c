@@ -214,6 +214,8 @@ test(void* thread)
 
   RR_START_SIMPLE();
 
+  uint64_t sum_enq = 0;
+  uint64_t sum_deq = 0;
 
   while (stop == 0) 
     {
@@ -224,8 +226,9 @@ test(void* thread)
         key = (c % 5) + rand_min;    
         int res;                
         START_TS(1);    
-        res = 1;              
+        res = 1;   
         DS_ADD(set, ID, (void*) key);   
+        sum_enq += (uint64_t) key;
         if(res)           
         {               
           END_TS(1, my_putting_count_succ);       
@@ -241,7 +244,7 @@ test(void* thread)
         void* removed;              
         START_TS(2);              
         removed = DS_REMOVE(set, ID);   
-
+        sum_deq += (uint64_t) removed;
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -259,7 +262,7 @@ test(void* thread)
   barrier_cross(&barrier);
   RR_STOP_SIMPLE();
 
-
+  //printf("for tid %u, enq %lu, deq %lu, - %lu \n", ID, sum_enq, sum_deq, (sum_enq - sum_deq));
 
   if (!ID)
     {
