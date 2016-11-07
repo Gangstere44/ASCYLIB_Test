@@ -32,13 +32,14 @@ wf_stack_t* init_wf_stack(uint64_t num_thr) {
 
 	new_stack->unique_req = NULL;
 	
+
 	return new_stack;
 }
 
 node_t* init_node(void* value, int64_t push_tid) {
 
 	node_t* new_node = ssmem_alloc(alloc_wf, sizeof(*new_node));
-	//node_t* new_node = malloc(sizeof(*new_node));
+	
 	new_node->value = value;
 	new_node->next_done = NULL;
 	new_node->prev = NULL;
@@ -53,7 +54,7 @@ node_t* init_node(void* value, int64_t push_tid) {
 push_op_t* init_push_op(uint64_t phase, node_t* n) {
 	
 	push_op_t* new_push_op = ssmem_alloc(alloc_wf, sizeof(*new_push_op));
-	//push_op_t* new_push_op = malloc(sizeof(*new_push_op));
+
 	new_push_op->phase = phase;
 	new_push_op->pushed = false;
 	new_push_op->node = n;
@@ -64,7 +65,7 @@ push_op_t* init_push_op(uint64_t phase, node_t* n) {
 delete_req_t* init_delete_req(uint64_t phase, int64_t tid, node_t* n) {
 	
     delete_req_t* new_del_req = ssmem_alloc(alloc_wf, sizeof(*new_del_req));
-	//delete_req_t* new_del_req = malloc(sizeof(*new_del_req));
+
 	new_del_req->phase = phase;
 	new_del_req->tid = tid;
 	new_del_req->pending = true;
@@ -100,9 +101,7 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 	uint64_t new_phase = FAI_U64(&s->phase_counter_push_req);
 
 	if(s->announces[tid] != NULL) {
-
 		ssmem_free(alloc_wf, (void*) s->announces[tid]);
-	//	free((void*) s->announces[tid]);
 	}
 
 	s->announces[tid] = init_push_op(new_phase, init_node(value, tid));
@@ -168,6 +167,7 @@ void attach_node(wf_stack_t* s, push_op_t* request, int64_t tid) {
 
 		}		
 	}
+
 }
 
 void update_top(wf_stack_t* s, int64_t tid) {
@@ -201,11 +201,7 @@ node_t* pop(wf_stack_t* s, int64_t tid) {
 	node_t* top = s->top;
 	node_t* cur = top;
 
-
-
 	while(cur->push_tid != -1) {
-
-
 
 		bool mark = CAS_U64_bool(&cur->mark, false, true);
 
@@ -255,7 +251,6 @@ void try_clean_up(wf_stack_t* s, node_t* n, int64_t tid, bool from_right_node) {
 		tmp->prev;
 
 	}
-
 }
 
 void help_finish_delete(wf_stack_t* s) {
@@ -269,9 +264,9 @@ void help_finish_delete(wf_stack_t* s) {
 	uint64_t end_idx = cur->node->index + W - 1;
 	node_t* right_node = s->top;
 	node_t* left_node = right_node->prev;
-			
+	
 	while(left_node->index != end_idx && left_node->push_tid != -1) {
-		
+
 		right_node = left_node;
 		left_node = left_node->prev;
 	}
@@ -287,17 +282,16 @@ void help_finish_delete(wf_stack_t* s) {
 		target = target->prev;
 	}
 
-	CAS_U64_bool(&right_node->prev, left_node, target);
+	if(CAS_U64_bool(&right_node->prev, left_node, target)) {
 
+		node_t* tmp;
+		for(i = 0; i < W; i++) {
+			tmp = left_node;
+			left_node = left_node->prev;
 
-	node_t* tmp;
-	for(i = 0; i < W; i++) {
-		tmp = left_node;
-		left_node = left_node->prev;
+			ssmem_free(alloc_wf, (void*) tmp);
+		}
 
-		
-		//free((void*) tmp);
-		//ssmem_free(alloc_wf, (void*) tmp);
 	}
 	
 	cur->pending = false;
@@ -306,14 +300,10 @@ void help_finish_delete(wf_stack_t* s) {
 void clean(wf_stack_t* s, int64_t tid, node_t* n) {
 
 	if(s->all_delete_requests[tid] != NULL) {
-		//ssmem_free(alloc_wf, (void*) s->all_delete_requests[tid]);
-		//free((void*) s->all_delete_requests[tid]);
-
+		ssmem_free(alloc_wf, (void*) s->all_delete_requests[tid]);
 	}
-	
 
 	uint64_t phase = FAI_U64(&s->phase_counter_del_req);
-	
 
 	s->all_delete_requests[tid] = init_delete_req(phase, tid, n);
 	
@@ -363,7 +353,9 @@ void unique_delete(wf_stack_t* s, delete_req_t* dr) {
 					return;
 				} 
 			}
+			
 		} else {
+
 			help_finish_delete(s);
 		}
 	}

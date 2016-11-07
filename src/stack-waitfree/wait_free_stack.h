@@ -26,6 +26,8 @@ typedef struct node {
 	volatile uint64_t index;
 	volatile uint64_t counter;
 
+	uint64_t padding[1];
+
 } node_t;
 
 typedef struct push_op {
@@ -33,6 +35,8 @@ typedef struct push_op {
 	uint64_t phase;
 	volatile bool pushed;
 	node_t* node;
+
+	uint64_t padding[5];
 	
 } push_op_t;
 
@@ -43,6 +47,8 @@ typedef struct delete_req {
 	volatile bool pending;
 	node_t* node;
 	
+	uint64_t padding[4];
+
 } delete_req_t;
 
 typedef struct wf_stack {
