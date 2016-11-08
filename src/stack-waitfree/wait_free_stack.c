@@ -4,13 +4,6 @@
 
 __thread ssmem_allocator_t* alloc_wf;
 
-
-int mark_bits(void* ptr) {
-
-	return (((uint64_t) ptr) & 0x00000003);
-}
-
-
 wf_stack_t* init_wf_stack(uint64_t num_thr) {
 	
 	wf_stack_t* new_stack = malloc(sizeof(wf_stack_t));
@@ -353,7 +346,7 @@ void unique_delete(wf_stack_t* s, delete_req_t* dr) {
 					return;
 				} 
 			}
-			
+
 		} else {
 
 			help_finish_delete(s);

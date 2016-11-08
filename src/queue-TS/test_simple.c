@@ -57,10 +57,10 @@
 
 // CHANGED
 //#define DS_CONTAINS(q,v)    wf_queue_contains(q,v)
-#define DS_ADD(queue,val,tid)       push(queue,val,tid)
-#define DS_REMOVE(queue,tid)    	pop(queue,tid)
-#define DS_SIZE(queue)          	queue_size(queue)
-#define DS_NEW(num_thr)          	new_ts_queue(num_thr)
+#define DS_ADD(queue,val,tid)       ts_push(queue,val,tid)
+#define DS_REMOVE(queue,tid)    	ts_pop(queue,tid)
+#define DS_SIZE(queue)          	ts_queue_size(queue)
+#define DS_NEW(num_thr)          	ts_new_queue(num_thr)
 
 #define DS_TYPE            			ts_queue_t
 #define DS_NODE             		node_t
@@ -87,7 +87,7 @@ size_t size_after = 0;
 int seed = 0;
 __thread unsigned long * seeds;
 uint32_t rand_max;
-#define rand_min 4
+#define rand_min 1
 
 static volatile int stop;
 TEST_VARS_GLOBAL;
@@ -164,9 +164,9 @@ test(void* thread)
     
   seeds = seed_rand();
 #if GC == 1
-  alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(alloc != NULL);
-  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  alloc_ts = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc_ts != NULL);
+  ssmem_alloc_init_fs_size(alloc_ts, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
 #endif
     
 
@@ -207,17 +207,21 @@ test(void* thread)
 
   RR_START_SIMPLE();
 
+  int64_t sum_enq = 0;
+  int64_t sum_deq = 0;
+
   while (stop == 0) 
     {
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); 
       if (unlikely(c < scale_put))            
       {                 
-        key = (c & rand_max) + rand_min;
-        //key = (c % 5) + rand_min;          
+        //key = (c & rand_max) + rand_min;
+        key = (c % 5) + rand_min;   
+        sum_enq += (int64_t) key;       
         int res;                
         START_TS(1);    
         res = 1;              
-        DS_ADD(set, (void*) key, ID));          
+        DS_ADD(set, (void*) key, ID);          
         if(res)           
         {               
           END_TS(1, my_putting_count_succ);       
@@ -232,7 +236,8 @@ test(void* thread)
       {                 
         void* removed;              
         START_TS(2);              
-        removed = DS_REMOVE(set, ID);           
+        removed = DS_REMOVE(set, ID);      
+        sum_deq += (int64_t) removed;     
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -261,7 +266,11 @@ test(void* thread)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
+
     }
+
+     // printf("sum enq - sum deq %ld \n", (sum_enq - sum_deq));
+
 
   barrier_cross(&barrier);
 

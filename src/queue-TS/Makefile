@@ -5,7 +5,7 @@ include $(ROOT)/common/Makefile.common
 ALGO_O = time_stamped_queue.o
 ALGO_C = time_stamped_queue.c
 
-BINS = "$(BINDIR)/wf-qu$(BIN_SUFFIX)"
+BINS = "$(BINDIR)/ts-qu$(BIN_SUFFIX)"
 PROF = $(ROOT)/src
 
 .PHONY:	all clean

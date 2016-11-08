@@ -64,8 +64,6 @@ typedef struct wf_stack {
 	
 } wf_stack_t;
 
-int mark_bits(void* ptr);
-
 wf_stack_t* init_wf_stack(uint64_t num_thr);
 node_t* init_node(void* value, int64_t push_tid);
 push_op_t* init_push_op(uint64_t phase, node_t* n);
