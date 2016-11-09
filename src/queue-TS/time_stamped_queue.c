@@ -1,7 +1,24 @@
 
 #include "time_stamped_queue.h"
+#include "utils.h"
 
 __thread ssmem_allocator_t* alloc_ts;
+
+
+uint64_t rdtscp(void) {
+	uint32_t lo, hi;
+	__asm__ volatile ("rdtscp"
+		: /* outputs */ "=a" (lo), "=d" (hi)
+		: /* no input*/
+		: /* clobbers */ "%rcx" );
+	return (uint64_t) lo | (((uint64_t) hi) << 32);
+}
+
+static inline uint64_t rdtscp2(void) {
+	uint64_t rax, rdx;
+	asm volatile ("rdtscp\n" : "=a" (rax), "=d" (rdx) : : );
+	return (rdx << 32) + rax;
+}
 
 ts_queue_t* ts_new_queue(int64_t num_thread) {
 
@@ -15,9 +32,11 @@ ts_queue_t* ts_new_queue(int64_t num_thread) {
 	for(i = 0; i < num_thread; i++) {
 		new_q->pools[i] = ts_new_pool(i);
 	}
+
+	new_q->delay.tv_sec = 0;
+	new_q->delay.tv_nsec = DELAY_TIME_NANO;
 	
 	return new_q;
-	
 }
 
 pool_t* ts_new_pool(int64_t tid) {
@@ -25,7 +44,6 @@ pool_t* ts_new_pool(int64_t tid) {
 	pool_t* new_pool = malloc(sizeof(pool_t));
 	new_pool->head = NULL;
 	new_pool->tail = NULL;
-	new_pool->counter_ts_pool = 0;
 	
 	return new_pool;
 }
@@ -34,7 +52,10 @@ node_t* ts_new_node(void* val, bool taken) {
 	
 	node_t* new_node = ssmem_alloc(alloc_ts, sizeof(node_t));
 	
-	new_node->ts = MAX_TIME_STAMP;
+	new_node->ts.begin = MAX_TIME_STAMP;
+	new_node->ts.end = MAX_TIME_STAMP;
+	new_node->ts.counter_value = MAX_TIME_STAMP;
+
 	new_node->value = val;
 	new_node->taken = taken;
 	new_node->next = NULL;
@@ -59,7 +80,7 @@ uint64_t ts_queue_size(ts_queue_t* q) {
 			
 			if(!tmp->taken) {
 				size++;
-				remain += tmp->value;
+				remain += (uint64_t) tmp->value;
 			}
 			
 			tmp = tmp->next;	
@@ -77,40 +98,93 @@ void ts_push(ts_queue_t* q, void* val, int64_t tid) {
 
 	pool_t* pool = q->pools[tid];
 		//printf("push 2 \n");
+	//printf("a");
 
 	node_t* n = ts_insert(q, pool, val);
 	//	printf("push 3 \n");
 
-	n->ts = FAI_U64(&q->counter_ts);
+	#ifdef TS_NAIVE
+	n->ts.counter_value = FAI_U64(&q->counter_ts);
+	#endif
+	
+	#ifdef TS_CAS
+	ts_CAS(q, &n->ts);
+	#endif
+
+	#ifdef TS_INTERVAL
+	ts_interval(&n->ts);
+		//printf("a");
+	#endif
+
 	//	printf("push 4\n");
 
+}
+
+void ts_interval(time_stamp_t* ts) {
+
+	ts->begin = rdtscp();
+	ts->end = rdtscp();
+
+	//printf("interval begin %lu - end %lu \n", ts->begin, ts->end);
+}
+
+void ts_CAS(ts_queue_t* q, time_stamp_t* ts) {
+
+	ts->begin = q->counter_ts;
+	//nanosleep(&q->delay, NULL);
+	PAUSE;
+	ts->end = q->counter_ts;
+
+	if(ts->begin != ts->end) {
+		return;
+	}
+
+	if(CAS_U64_bool(&q->counter_ts, ts->begin, ts->begin + 1)) {
+		return;
+	}
+
+	ts->end = q->counter_ts - 1;
 }
 
 void* ts_pop(ts_queue_t* q, int64_t tid) {
 	
 	//printf("pop 1\n");
 
-	uint64_t time_stamp = FAI_U64(&q->counter_ts);
+	time_stamp_t time_stamp = {.begin = MAX_TIME_STAMP, 
+							   .end = MAX_TIME_STAMP, 
+							   .counter_value = MAX_TIME_STAMP};
+	#ifdef TS_NAIVE
+    time_stamp.counter_value = FAI_U64(&q->counter_ts);
+	#endif
+	
+	#ifdef TS_CAS
+	ts_CAS(q, &time_stamp);
+	#endif
+
+	#ifdef TS_INTERVAL
+	ts_interval(&time_stamp);
+	#endif
 	
 	pop_request_t pop_req = {.success = false, .element = NULL};
 	//		printf("pop 2\n");
 
 	do {
-		ts_try_remove(q, time_stamp, &pop_req);
+		ts_try_remove(q, &time_stamp, &pop_req);
 	} while(!pop_req.success);
 	//	printf("pop 3\n");
 
 	return pop_req.element;
 }
 
-void ts_try_remove(ts_queue_t* q, uint64_t start_time, pop_request_t* pop_req) {
+void ts_try_remove(ts_queue_t* q, time_stamp_t* start_time, pop_request_t* pop_req) {
 
 	node_t* new_head = NULL;
-	uint64_t time_stamp = MAX_TIME_STAMP;
+	
+	time_stamp_t time_stamp = {.begin = MAX_TIME_STAMP, .end = MAX_TIME_STAMP, .counter_value = MAX_TIME_STAMP};
+	
 	pool_t* pool = NULL;
 	node_t* head = NULL;
 	node_t** empty = calloc(q->num_thread, sizeof(node_t*));
-	
 	
 	uint64_t i;
 	for(i = 0; i < q->num_thread; i++) {
@@ -125,11 +199,25 @@ void ts_try_remove(ts_queue_t* q, uint64_t start_time, pop_request_t* pop_req) {
 			continue;
 		}
 		
-		uint64_t node_time_stamp = old_req.node->ts;
+		time_stamp_t node_time_stamp = old_req.node->ts;
 		
-		if(time_stamp == MAX_TIME_STAMP || time_stamp < node_time_stamp) {
+		#ifdef TS_NAIVE
+		bool stat = time_stamp.counter_value == MAX_TIME_STAMP 
+					|| time_stamp.counter_value < node_time_stamp.counter_value;
+		#endif
+
+		#if defined(TS_INTERVAL) || defined(TS_CAS)
+		bool stat = time_stamp.begin == MAX_TIME_STAMP
+					|| time_stamp.end < node_time_stamp.begin;
+		#endif
+
+		if(stat) {	
 			new_head = old_req.node;
-			time_stamp = node_time_stamp;
+
+			time_stamp.begin = node_time_stamp.begin;
+			time_stamp.end = node_time_stamp.end;
+			time_stamp.counter_value = node_time_stamp.counter_value;
+
 			pool = current;
 			head = old_req.pool_head;
 		}
