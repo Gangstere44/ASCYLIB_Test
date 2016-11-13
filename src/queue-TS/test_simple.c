@@ -78,6 +78,13 @@ size_t load_factor;
 size_t num_threads = DEFAULT_NB_THREADS; 
 size_t duration = DEFAULT_DURATION;
 
+// CHANGE
+#define DEFAULT_DELAY_TICKS 10
+size_t delay_ticks = DEFAULT_DELAY_TICKS;
+
+#define DEFAULT_STRATEGY 1
+size_t interval_strategy = DEFAULT_STRATEGY;
+
 size_t print_vals_num = 100; 
 size_t pf_vals_num = 1023;
 size_t put, put_explicit = false;
@@ -309,6 +316,8 @@ test(void* thread)
 int
 main(int argc, char **argv) 
 {
+    printf("++++");
+
   set_cpu(0);
   ssalloc_init();
   seeds = seed_rand();
@@ -324,20 +333,24 @@ main(int argc, char **argv)
     {"num-buckets",               required_argument, NULL, 'b'},
     {"print-vals",                required_argument, NULL, 'v'},
     {"vals-pf",                   required_argument, NULL, 'f'},
+    {"delay-ticks",               required_argument, NULL, 't'},
+    {"choose-inter",              required_argument, NULL, 'b'},
     {NULL, 0, NULL, 0}
   };
 
   int i, c;
+      printf("----");
+
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:t:b", long_options, &i);
 		
       if(c == -1)
-	break;
+      	break;
 		
       if(c == 0 && long_options[i].flag == 0)
-	c = long_options[i].val;
+      	c = long_options[i].val;
 		
       switch(c) 
 	{
@@ -372,6 +385,10 @@ main(int argc, char **argv)
 		 "        When using detailed profiling, how many values to print.\n"
 		 "  -f, --val-pf <int>\n"
 		 "        When using detailed profiling, how many values to keep track of.\n"
+     "  -t, --delay-ticks <int>\n"
+     "        Number of nanoseconds to compute an interval.\n"
+     "  -b, --choose-inter <int>\n"
+     "        1 is for naive interval, 2 is for CAS, 3 is for regular interval.\n"
 		 , argv[0]);
 	  exit(0);
 	case 'd':
@@ -402,6 +419,12 @@ main(int argc, char **argv)
 	case 'f':
 	  pf_vals_num = pow2roundup(atoi(optarg)) - 1;
 	  break;
+  case 't':
+    delay_ticks = atoi(optarg);
+    break;
+  case 'b':
+    interval_strategy = atoi(optarg);
+    break;
 	case '?':
 	default:
 	  printf("Use -h or --help for help\n");
@@ -474,6 +497,10 @@ main(int argc, char **argv)
 
   DS_TYPE* set = DS_NEW(num_threads);
   assert(set != NULL);
+
+  // CHANGED
+  set->delay_ticks = delay_ticks;
+  set->strategy = interval_strategy;
 
 
   /* Initializes the local data */

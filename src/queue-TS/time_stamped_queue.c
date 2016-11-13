@@ -1,6 +1,5 @@
 
 #include "time_stamped_queue.h"
-#include "utils.h"
 
 __thread ssmem_allocator_t* alloc_ts;
 
@@ -33,8 +32,9 @@ ts_queue_t* ts_new_queue(int64_t num_thread) {
 		new_q->pools[i] = ts_new_pool(i);
 	}
 
-	new_q->delay.tv_sec = 0;
-	new_q->delay.tv_nsec = DELAY_TIME_NANO;
+	new_q->delay_ticks = DELAY_TIME_TICKS;
+
+	new_q->strategy = TS_NAIVE;
 	
 	return new_q;
 }
@@ -103,26 +103,21 @@ void ts_push(ts_queue_t* q, void* val, int64_t tid) {
 	node_t* n = ts_insert(q, pool, val);
 	//	printf("push 3 \n");
 
-	#ifdef TS_NAIVE
-	n->ts.counter_value = FAI_U64(&q->counter_ts);
-	#endif
-	
-	#ifdef TS_CAS
-	ts_CAS(q, &n->ts);
-	#endif
-
-	#ifdef TS_INTERVAL
-	ts_interval(&n->ts);
-		//printf("a");
-	#endif
-
-	//	printf("push 4\n");
-
+	if(q->strategy == TS_NAIVE) {
+		n->ts.counter_value = FAI_U64(&q->counter_ts);
+	} else if(q->strategy == TS_CAS) {
+		ts_CAS(q, &n->ts);
+	} else if(q->strategy == TS_INTERVAL) {
+		ts_interval(q, &n->ts);
+	}
 }
 
-void ts_interval(time_stamp_t* ts) {
+void ts_interval(ts_queue_t* q, time_stamp_t* ts) {
 
 	ts->begin = rdtscp();
+
+	cdelay(q->delay_ticks);
+
 	ts->end = rdtscp();
 
 	//printf("interval begin %lu - end %lu \n", ts->begin, ts->end);
@@ -131,8 +126,9 @@ void ts_interval(time_stamp_t* ts) {
 void ts_CAS(ts_queue_t* q, time_stamp_t* ts) {
 
 	ts->begin = q->counter_ts;
-	//nanosleep(&q->delay, NULL);
-	PAUSE;
+	
+	cdelay(q->delay_ticks);
+
 	ts->end = q->counter_ts;
 
 	if(ts->begin != ts->end) {
@@ -153,17 +149,14 @@ void* ts_pop(ts_queue_t* q, int64_t tid) {
 	time_stamp_t time_stamp = {.begin = MAX_TIME_STAMP, 
 							   .end = MAX_TIME_STAMP, 
 							   .counter_value = MAX_TIME_STAMP};
-	#ifdef TS_NAIVE
-    time_stamp.counter_value = FAI_U64(&q->counter_ts);
-	#endif
-	
-	#ifdef TS_CAS
-	ts_CAS(q, &time_stamp);
-	#endif
 
-	#ifdef TS_INTERVAL
-	ts_interval(&time_stamp);
-	#endif
+	if(q->strategy == TS_NAIVE) {
+   		time_stamp.counter_value = FAI_U64(&q->counter_ts);
+	} else if(q->strategy == TS_CAS) {
+		ts_CAS(q, &time_stamp);
+	} else if(q->strategy == TS_INTERVAL) {
+		ts_interval(q, &time_stamp);
+	}
 	
 	pop_request_t pop_req = {.success = false, .element = NULL};
 	//		printf("pop 2\n");
@@ -201,15 +194,14 @@ void ts_try_remove(ts_queue_t* q, time_stamp_t* start_time, pop_request_t* pop_r
 		
 		time_stamp_t node_time_stamp = old_req.node->ts;
 		
-		#ifdef TS_NAIVE
-		bool stat = time_stamp.counter_value == MAX_TIME_STAMP 
+		bool stat = false;
+		if(q->strategy == TS_NAIVE) {
+			stat = time_stamp.counter_value == MAX_TIME_STAMP 
 					|| time_stamp.counter_value < node_time_stamp.counter_value;
-		#endif
-
-		#if defined(TS_INTERVAL) || defined(TS_CAS)
-		bool stat = time_stamp.begin == MAX_TIME_STAMP
+		} else if(q->strategy == TS_CAS || q->strategy == TS_INTERVAL) {
+			stat = time_stamp.begin == MAX_TIME_STAMP
 					|| time_stamp.end < node_time_stamp.begin;
-		#endif
+		}
 
 		if(stat) {	
 			new_head = old_req.node;
