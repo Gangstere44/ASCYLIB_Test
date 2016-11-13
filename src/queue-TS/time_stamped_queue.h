@@ -15,8 +15,8 @@
 #define MAX_TIME_STAMP ((uint64_t) -1)
 #define DELAY_TIME_NANO 300
 
-//#define TS_CAS 1
-#define TS_INTERVAL 1
+#define TS_CAS 1
+//#define TS_INTERVAL 1
 //#define TS_NAIVE 1
 
 extern __thread ssmem_allocator_t* alloc_ts;

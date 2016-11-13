@@ -535,11 +535,14 @@ prev->next = first;
         
     }
 
+/*
 printf("check ring correctness \n");
 
 for(t = 0; t < num_threads; t++) {
   printf("thread %lu -> thread %lu \n", tds[t].handle->tid, tds[t].handle->next->tid);
 }
+*
+*/
 
     
   /* Free attribute and wait for the other threads */
