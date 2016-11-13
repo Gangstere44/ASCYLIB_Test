@@ -6,18 +6,21 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
-#include <time.h>
 
 #include "atomic_ops_if.h"
 #include "ssmem.h"
+#include "getticks.h"
+#include "utils.h"
 
 #define EMPTY ((void*) 0)
 #define MAX_TIME_STAMP ((uint64_t) -1)
-#define DELAY_TIME_NANO 300
+#define DELAY_TIME_TICKS 1000
 
-#define TS_CAS 1
-//#define TS_INTERVAL 1
-//#define TS_NAIVE 1
+#define TS_NAIVE 1
+#define TS_CAS 2
+#define TS_INTERVAL 3
+
+
 
 extern __thread ssmem_allocator_t* alloc_ts;
 
@@ -71,7 +74,9 @@ typedef struct ts_queue {
 	int64_t num_thread;
 	uint64_t counter_ts;
 	
-	struct timespec delay;
+	ticks delay_ticks;
+
+	int strategy;
 
 } ts_queue_t;
 
@@ -82,7 +87,7 @@ node_t* ts_new_node(void* val, bool taken);
 uint64_t ts_queue_size(ts_queue_t* q);
 
 void ts_push(ts_queue_t* q, void* val, int64_t tid);
-void ts_interval(time_stamp_t* ts);
+void ts_interval(ts_queue_t* q, time_stamp_t* ts);
 void ts_CAS(ts_queue_t* q, time_stamp_t* ts);
 void* ts_pop(ts_queue_t* q, int64_t tid);
 void ts_try_remove(ts_queue_t* q, time_stamp_t* start_time, pop_request_t* pop_req);
