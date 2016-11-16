@@ -269,6 +269,7 @@ test(void* thread)
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
 
+      print_latencies(set);
     }
 
   barrier_cross(&barrier);
@@ -422,6 +423,7 @@ main(int argc, char **argv)
     }
 
   printf("## Initial: %zu / Range: %zu / ", initial, range);
+
   printf("OPTIK algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;

@@ -7,12 +7,16 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "ssmem.h"
 #include "atomic_ops_if.h"
+#include "getticks.h"
 
-#define W 4
+#define W 2
 #define EMPTY_STACK 0
+
+
 
 extern __thread ssmem_allocator_t* alloc_wf;
 
@@ -51,6 +55,38 @@ typedef struct delete_req {
 
 } delete_req_t;
 
+typedef struct thr_latencies {
+
+	volatile ticks push_lat;
+	volatile uint64_t push_count;
+	volatile ticks help_lat;
+	volatile uint64_t help_count;
+	volatile ticks attach_node_lat;
+	volatile uint64_t attach_node_count;
+	volatile ticks update_top_lat;
+	volatile uint64_t update_top_count;
+	volatile ticks pop_lat;
+	volatile uint64_t pop_count;
+	volatile ticks try_clean_up_lat1;
+	volatile uint64_t try_clean_up_count1;
+	volatile ticks try_clean_up_lat2;
+	volatile uint64_t try_clean_up_count2;
+	volatile ticks help_finish_delete_lat;
+	volatile uint64_t help_finish_delete_count;
+	volatile ticks clean_lat;
+	volatile uint64_t clean_count;
+	volatile ticks help_delete_lat;
+	volatile uint64_t help_delete_count;
+	volatile ticks unique_delete_lat;
+	volatile uint64_t unique_delete_count;
+
+	volatile ticks ssmem_alloc_lat;
+	volatile uint64_t ssmem_alloc_count;
+	volatile ticks ssmem_free_lat;
+	volatile uint64_t ssmem_free_count;
+
+} thr_latencies_t;
+
 typedef struct wf_stack {
 	
 	uint64_t num_thr;
@@ -62,7 +98,11 @@ typedef struct wf_stack {
 	volatile uint64_t phase_counter_del_req;
 	volatile delete_req_t* volatile unique_req;
 	
+	thr_latencies_t* thr_info;
+
 } wf_stack_t;
+
+
 
 wf_stack_t* init_wf_stack(uint64_t num_thr);
 node_t* init_node(void* value, int64_t push_tid);
@@ -78,10 +118,12 @@ void update_top(wf_stack_t* s, int64_t tid);
 
 node_t* pop(wf_stack_t* s, int64_t tid);
 void try_clean_up(wf_stack_t* s, node_t* n, int64_t tid, bool from_right_node);
-void help_finish_delete(wf_stack_t* s);
+void help_finish_delete(wf_stack_t* s, int64_t tid);
 
 void clean(wf_stack_t* s, int64_t tid, node_t* n);
-void help_delete(wf_stack_t* s, delete_req_t* dr);
-void unique_delete(wf_stack_t* s, delete_req_t* dr);
+void help_delete(wf_stack_t* s, delete_req_t* dr, int64_t tid);
+void unique_delete(wf_stack_t* s, delete_req_t* dr, int64_t tid);
 
+void print_latency(wf_stack_t* s, int64_t tid);
+void print_latencies(wf_stack_t* s);
 #endif

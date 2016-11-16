@@ -5,7 +5,7 @@ include $(ROOT)/common/Makefile.common
 ALGO_O = wait_free_stack.o
 ALGO_C = wait_free_stack.c
 
-BINS = "$(BINDIR)/wf_st$(BIN_SUFFIX)"
+BINS = "$(BINDIR)/wf-st$(BIN_SUFFIX)"
 PROF = $(ROOT)/src
 
 .PHONY:	all clean
