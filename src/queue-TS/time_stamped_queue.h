@@ -21,6 +21,7 @@
 #define TS_INTERVAL 3
 
 
+
 extern __thread ssmem_allocator_t* alloc_ts;
 
 typedef struct time_stamp {
