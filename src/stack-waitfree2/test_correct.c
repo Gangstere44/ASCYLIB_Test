@@ -1,8 +1,8 @@
 /*   
- *   File: test_simple.c
+ *   File: test_correct.c
  *   Author: Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
  *   Description: 
- *   test_simple.c is part of ASCYLIB
+ *   test_correct.c is part of ASCYLIB
  *
  * Copyright (c) 2014 Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>,
  * 	     	      Tudor David <tudor.david@epfl.ch>
@@ -40,39 +40,34 @@
 #include <malloc.h>
 #include "utils.h"
 #include "atomic_ops.h"
-#include "rapl_read.h"
 #ifdef __sparc__
 #  include <sys/types.h>
 #  include <sys/processor.h>
 #  include <sys/procset.h>
 #endif
 
-// ADDED
-#include "wait_free_queue.h"
+#include "intset.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
  * ################################################################### */
 
-// CHANGED
-#define DS_CONTAINS(q,v)    wf_queue_contains(q,v)
-#define DS_ADD(q,h,v)       enqueue(q, h, v)
-#define DS_REMOVE(q,h)      dequeue(q,h)
-#define DS_SIZE(q)          wf_queue_size(q)
-#define DS_NEW(q)           init_wf_queue(q)
+#define DS_CONTAINS(s,k)  sl_contains(s, k)
+#define DS_ADD(s,k,v)     sl_add(s, k, (sval_t) v)
+#define DS_REMOVE(s,k)    sl_remove(s, k)
+#define DS_SIZE(s)          sl_set_size(s)
+#define DS_NEW()            sl_set_new()
 
-#define DS_TYPE             wf_queue_t
-#define DS_NODE             wf_segment_t
+#define DS_TYPE             sl_intset_t
+#define DS_NODE             sl_node_t
 
 /* ################################################################### *
  * GLOBALS
  * ################################################################### */
 
-RETRY_STATS_VARS_GLOBAL;
-
 size_t initial = DEFAULT_INITIAL;
 size_t range = DEFAULT_RANGE; 
-size_t update = 100;
+size_t update = DEFAULT_UPDATE;
 size_t load_factor;
 size_t num_threads = DEFAULT_NB_THREADS; 
 size_t duration = DEFAULT_DURATION;
@@ -89,7 +84,7 @@ uint32_t rand_max;
 #define rand_min 1
 
 static volatile int stop;
-TEST_VARS_GLOBAL;
+__thread uint32_t phys_id;
 
 volatile ticks *putting_succ;
 volatile ticks *putting_fail;
@@ -104,9 +99,6 @@ volatile ticks *getting_count_succ;
 volatile ticks *removing_count;
 volatile ticks *removing_count_succ;
 volatile ticks *total;
-
-//ADDED
-volatile wf_queue_t queue;
 
 
 /* ################################################################### *
@@ -124,9 +116,7 @@ barrier_t barrier, barrier_global;
 typedef struct thread_data
 {
   uint32_t id;
-//  DS_TYPE* set;
-  wf_handle_t* handle;
-
+  DS_TYPE* set;
 } thread_data_t;
 
 void*
@@ -137,9 +127,7 @@ test(void* thread)
   set_cpu(ID);
   ssalloc_init();
 
-// CHANGED
-  //DS_TYPE* set = td->set;
-  wf_handle_t* h = td->handle;
+  DS_TYPE* set = td->set;
 
   THREAD_INIT(ID);
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
@@ -169,14 +157,14 @@ test(void* thread)
 #if GC == 1
   alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
   assert(alloc != NULL);
-  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  ssmem_alloc_init(alloc, SSMEM_DEFAULT_MEM_SIZE, ID);
+  ssmem_allocator_t* alloc_data = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc_data != NULL);
+  ssmem_alloc_init(alloc_data, SSMEM_DEFAULT_MEM_SIZE, ID);
 #endif
     
-
-  RR_INIT(phys_id);
-  barrier_cross(&barrier);
-
   uint64_t key;
+  size_t* val = NULL;
   int c = 0;
   uint32_t scale_rem = (uint32_t) (update_rate * UINT_MAX);
   uint32_t scale_put = (uint32_t) (put_rate * UINT_MAX);
@@ -188,18 +176,24 @@ test(void* thread)
     {
       num_elems_thread++;
     }
-
-#if INITIALIZE_FROM_ONE == 1
-  num_elems_thread = (ID == 0) * initial;
-#endif
     
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
       
-      if(DS_ADD(&queue, h, key) == false)
+      if (val == NULL)
+	{
+	  val = (size_t*) ssmem_alloc(alloc_data, sizeof(size_t));
+	}
+      val[0] = key;
+
+      if(DS_ADD(set, key, val) == false)
 	{
 	  i--;
+	}
+      else
+	{
+	  val = NULL;
 	}
     }
   MEM_BARRIER;
@@ -208,27 +202,82 @@ test(void* thread)
 
   if (!ID)
     {
-      printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(&queue));
+      printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(set));
     }
 
-
-  RETRY_STATS_ZERO();
 
   barrier_cross(&barrier_global);
 
-  RR_START_SIMPLE();
-
   while (stop == 0) 
     {
-      TEST_LOOP_ONLY_UPDATES();
+      c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2])));
+      key = (c & rand_max) + rand_min;
+
+      if (unlikely(c <= scale_put))
+	{
+	  if (val == NULL)
+	    {
+	      val = (size_t*) ssmem_alloc(alloc_data, sizeof(size_t));
+	    }
+	  val[0] = key;
+
+	  int res;
+	  START_TS(1);
+	  res = DS_ADD(set, key, val);
+	  END_TS(1, my_putting_count);
+	  if(res)
+	    {
+	      ADD_DUR(my_putting_succ);
+	      my_putting_count_succ++;
+	      val = NULL;
+	    }
+	  ADD_DUR_FAIL(my_putting_fail);
+	  my_putting_count++;
+	} 
+      else if(unlikely(c <= scale_rem))
+	{
+	  size_t* removed;
+	  START_TS(2);
+	  removed = (size_t*) DS_REMOVE(set, key);
+	  END_TS(2, my_removing_count);
+	  if(removed != NULL) 
+	    {
+	      ADD_DUR(my_removing_succ);
+	      my_removing_count_succ++;
+	      if (removed[0] != key)
+		{
+		  printf(" *[REM]* WRONG for key: %-10lu : %-10lu @ %p\n", key, removed[0], removed);
+		}
+	      ssmem_free(alloc_data, removed);
+	    }
+	  ADD_DUR_FAIL(my_removing_fail);
+	  my_removing_count++;
+	}
+      else
+	{ 
+	  size_t* res;
+	  START_TS(0);
+	  res = (size_t*) DS_CONTAINS(set, key);
+	  END_TS(0, my_getting_count);
+	  if(res != NULL) 
+	    {
+	      ADD_DUR(my_getting_succ);
+	      my_getting_count_succ++;
+	      if (res[0] != key)
+		{
+		  printf(" *[GET]* WRONG for key: %-10lu : %-10lu @ %p\n", key, res[0], res);
+		}
+	    }
+	  ADD_DUR_FAIL(my_getting_fail);
+	  my_getting_count++;
+	}
     }
 
   barrier_cross(&barrier);
-  RR_STOP_SIMPLE();
 
   if (!ID)
     {
-      size_after = DS_SIZE(&queue);
+      size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
     }
 
@@ -253,7 +302,6 @@ test(void* thread)
   EXEC_IN_DEC_ID_ORDER(ID, num_threads)
     {
       print_latency_stats(ID, SSPFD_NUM_ENTRIES, print_vals_num);
-      RETRY_STATS_SHARE();
     }
   EXEC_IN_DEC_ID_ORDER_END(&barrier);
 
@@ -261,8 +309,9 @@ test(void* thread)
 #if GC == 1
   ssmem_term();
   free(alloc);
+  free(alloc_data);
 #endif
-  THREAD_END();
+
   pthread_exit(NULL);
 }
 
@@ -356,6 +405,9 @@ main(int argc, char **argv)
 	case 'l':
 	  load_factor = atoi(optarg);
 	  break;
+	/* case 'b': */
+	/*   num_buckets_param = atoi(optarg); */
+	/*   break; */
 	case 'v':
 	  print_vals_num = atoi(optarg);
 	  break;
@@ -382,8 +434,9 @@ main(int argc, char **argv)
       range = 2 * initial;
     }
 
+  printf("## Test correctness \n");
   printf("## Initial: %zu / Range: %zu / ", initial, range);
-  printf("MS lock-based algorithm\n");
+  printf("Herlihy's algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;
@@ -429,13 +482,11 @@ main(int argc, char **argv)
   timeout.tv_nsec = (duration % 1000) * 1000000;
     
   stop = 0;
-  
-// CHANGED
-/*  
+    
+  levelmax = floor_log_2((unsigned int) initial);
+
   DS_TYPE* set = DS_NEW();
   assert(set != NULL);
-*/
-init_wf_queue(&queue);
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -450,28 +501,7 @@ init_wf_queue(&queue);
   getting_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
-  
-// ADDED : HANDLES CREATION
-
-wf_handle_t handles[num_threads];
-wf_handle_t* first = &handles[num_threads - 1];
-init_wf_handle(first, queue.q);
-wf_handle_t* prev = first;
-uint64_t hn;
-for(hn = 0; hn < num_threads - 1; hn++) {
-	
-	volatile wf_handle_t* currentH = &handles[hn];
-	init_wf_handle(currentH, queue.q);
-
-	prev->next = currentH;
-	prev = currentH;
-	
-}
-prev->next = first;
-
-//
-
-  
+    
   pthread_t threads[num_threads];
   pthread_attr_t attr;
   int rc;
@@ -490,8 +520,7 @@ prev->next = first;
   for(t = 0; t < num_threads; t++)
     {
       tds[t].id = t;
-// CHANGED
-      tds[t].handle = &handles[t];
+      tds[t].set = set;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
 	{
@@ -592,11 +621,6 @@ prev->next = first;
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
   printf("#Mops %.3f\n", throughput / 1e6);
-
-  RR_PRINT_UNPROTECTED(RAPL_PRINT_POW);
-  RR_PRINT_CORRECTED();
-  RETRY_STATS_PRINT(total, putting_count_total, removing_count_total, putting_count_total_succ + removing_count_total_succ);    
-  LATENCY_DISTRIBUTION_PRINT();
     
   pthread_exit(NULL);
     

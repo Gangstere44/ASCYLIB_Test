@@ -2,10 +2,10 @@ ROOT = ../..
 
 include $(ROOT)/common/Makefile.common
 
-ALGO_O = wait_free_queue.o
-ALGO_C = wait_free_queue.c
+ALGO_O = wait_free_stack2.o
+ALGO_C = wait_free_stack2.c
 
-BINS = "$(BINDIR)/lb-qu_ms$(BIN_SUFFIX)"
+BINS = "$(BINDIR)/wf-st2$(BIN_SUFFIX)"
 PROF = $(ROOT)/src
 
 .PHONY:	all clean
@@ -30,10 +30,13 @@ queue-lock.o:
 $(ALGO_O): queue-lock.h 
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/$(ALGO_O) $(ALGO_C)
 
+queue-ms.o: queue-lock.h 
+	$(CC) $(CFLAGS) -c -o $(BUILDIR)/queue-ms.o queue-ms.c
+
 intset.o: queue-lock.h queue-ms.h htlock.o clh.o
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/intset.o intset.c
 
-test.o: queue-lock.h queue-ms.h intset.h
+test.o: queue-lock.h wait_free_stack2.h queue-ms.h intset.h
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/test.o $(TEST_FILE)
 
 main: measurements.o ssalloc.o queue-lock.o $(ALGO_O) intset.o test.o clh.o

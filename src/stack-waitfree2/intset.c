@@ -1,9 +1,9 @@
 /*   
- *   File: intset.h
+ *   File: intset.c
  *   Author: Vincent Gramoli <vincent.gramoli@sydney.edu.au>, 
  *  	     Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>
  *   Description: 
- *   intset.h is part of ASCYLIB
+ *   intset.c is part of ASCYLIB
  *
  * Copyright (c) 2014 Vasileios Trigonakis <vasileios.trigonakis@epfl.ch>,
  * 	     	      Tudor David <tudor.david@epfl.ch>
@@ -21,10 +21,24 @@
  *
  */
 
-/*
-#include "queue-ms.h"
+#include "intset.h"
 
-sval_t queue_contains(queue_t *set, skey_t key);
-int queue_add(queue_t *set, skey_t key, sval_t val);
-sval_t queue_remove(queue_t *set);
+/*
+inline sval_t
+mstack_contains(mstack_t *set, skey_t key)
+{
+  return mstack_treiber_find(set, key);
+}
+
+inline int
+mstack_add(mstack_t *set, skey_t key, sval_t val)
+{  
+  return mstack_treiber_insert(set, key, val);
+}
+
+inline sval_t
+mstack_remove(mstack_t *set)
+{
+  return mstack_treiber_delete(set);
+}
 */
