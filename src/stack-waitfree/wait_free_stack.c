@@ -13,6 +13,14 @@ volatile ticks correction = 0;
 #  define LFENCE asm volatile ("lfence")
 #endif
 
+#define START_TS()
+#define END_TS();
+#define START_TS_ALLOC();
+#define END_TS_ALLOC();
+#define ADD_DUR(x);
+#define ADD_DUR_ALLOC(x);
+
+/*
 #  define START_TS()				\
     asm volatile ("");				\
     ticks start_acq = getticks();			\
@@ -32,7 +40,7 @@ volatile ticks correction = 0;
     ticks end_acq_alloc = getticks();			\
     asm volatile ("");
 #  define ADD_DUR_ALLOC(tar) tar += (end_acq_alloc - start_acq_alloc - correction)
-
+*/
 __thread ssmem_allocator_t* alloc_wf;
 
 wf_stack_t* init_wf_stack(uint64_t num_thr) {
