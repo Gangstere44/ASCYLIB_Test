@@ -1,6 +1,6 @@
 
 
-#include "wait_free_stack.h"
+#include "wait_free_stack2.h"
 
 __thread ssmem_allocator_t* alloc_wf;
 
@@ -18,7 +18,7 @@ wf_stack_t* init_wf_stack(uint64_t num_thr) {
 	for(i = 0; i < num_thr; i++) {
 		new_stack->announces[i] = NULL;
 		
-		new_stack->handles.ttd = i == num_thr - 1 ? 0 : i + 1;
+		new_stack->handles[i].ttd = i == num_thr - 1 ? 0 : i + 1;
 	}
 	
 	new_stack->clean_tid = -1;
@@ -36,12 +36,11 @@ node_t* init_node(void* value, int64_t push_tid) {
 	new_node->mark = false;
 	new_node->push_tid = push_tid;
 	new_node->index = 0;
-	new_node->counter = 0;
 
 	return new_node;
 }
 
-push_op_t* init_push_op(uint64_t phase, node_t* n) {
+push_op_t* init_push_op(node_t* n) {
 	
 	push_op_t* new_push_op = ssmem_alloc(alloc_wf, sizeof(*new_push_op));
 
@@ -123,10 +122,10 @@ void push_slow(wf_stack_t* s, node_t* n, int64_t tid) {
 		ssmem_free(alloc_wf, (void*) s->announces[tid]);
 	}
 	
-	push_op_t* req = init_push_op(new_phase, new_node);
+	push_op_t* req = init_push_op(n);
 	s->announces[tid] = req;
 	
-	while(!req.pushed && !n.mark) {
+	while(!req->pushed && !n->mark) {
 		
 		if(push_fast(s, n, tid)) {
 			req->pushed = true;
@@ -143,14 +142,12 @@ node_t* pop(wf_stack_t* s, int64_t tid) {
 	int64_t i;
 	for(i = 0; i < PATIENCE; i++) {
 		if(fast_pop(s, tid, &cur)) {
-			
-			void* result = cur->value;
-			
+					
 			return cur->value;
 		}
 	}
 	
-	slow_pop();
+	slow_pop(s, tid, &cur);
 
 	
 
@@ -168,15 +165,15 @@ node_t* pop(wf_stack_t* s, int64_t tid) {
 
 bool fast_pop(wf_stack_t* s, int64_t tid, node_t** ret_n) {
 	
-	int64_t to_help = s->handles[tid];
-	s->handles[tid] = (s->handles[tid] + 1) % s->num_thr;
-	if(s->handles[tid] == tid) {
-		s->handles[tid] = (s->handles[tid] + 1) % s->num_thr;
+	int64_t to_help = s->handles[tid].ttd;
+	s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
+	if(s->handles[tid].ttd == tid) {
+		s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
 	}
 	
 	push_op_t* push_req = s->announces[to_help];
 	
-	if(push_req != NULL && !push_req.pushed) {
+	if(push_req != NULL && !push_req->pushed) {
 		
 		bool mark = CAS_U64_bool(&push_req->node->mark, false, true);
 	
@@ -206,7 +203,7 @@ void slow_pop(wf_stack_t* s, int64_t tid, node_t** ret_n) {
 
 	}
 	
-	ret_n* = cur;
+	*ret_n = cur;
 }
 
 void try_clean_up(wf_stack_t* s, int64_t tid) {
@@ -218,7 +215,7 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 	if(CAS_U64_bool(&s->clean_tid, -1, tid)) {
 		
 		node_t* left = s->top;
-		node_t* right = s->prev;
+		node_t* right = left->prev;
 		
 		int64_t cover_node = 0;
 		while(right->push_tid != -1) {

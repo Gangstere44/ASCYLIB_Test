@@ -48,7 +48,7 @@
 #endif
 
 // ADDED
-#include "wait_free_stack.h"
+#include "wait_free_stack2.h"
 #include "intset.h"
 
 /* ################################################################### *
@@ -60,11 +60,11 @@
 //#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
 #define DS_ADD(stack,tid,val)       push(stack,tid,val) 
 #define DS_REMOVE(stack,tid)        pop(stack,tid)
-#define DS_SIZE(stack)          	stack_size(stack)
+#define DS_SIZE(stack)          	  stack_size(stack)
 #define DS_NEW(num_thr)            	init_wf_stack(num_thr)
 
-#define DS_TYPE            			wf_stack_t
-#define DS_NODE           			node_t
+#define DS_TYPE            			    wf_stack_t
+#define DS_NODE           			     node_t
 
 /* ################################################################### *
  * GLOBALS
@@ -269,7 +269,6 @@ test(void* thread)
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
 
-      print_latencies(set);
     }
 
   barrier_cross(&barrier);
