@@ -33,8 +33,6 @@ typedef struct wf_segment
 
 } wf_segment_t;
 
-
-
 typedef struct handle {
 
 	int64_t ttd; // tid_to_help

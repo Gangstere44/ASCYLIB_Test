@@ -241,7 +241,7 @@ test(void* thread)
       }                 
       else if(unlikely(c <= scale_rem))         
       {                 
-        void* removed;              
+        void* removed = ((void*) 0);              
         START_TS(2);              
         removed = DS_REMOVE(set, ID);   
         sum_deq += (uint64_t) removed;

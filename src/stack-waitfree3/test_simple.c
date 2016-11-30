@@ -64,7 +64,7 @@
 #define DS_NEW(num_thr)            	init_wf_stack(num_thr)
 
 #define DS_TYPE            			    wf_stack_t
-#define DS_NODE           			     node_t
+#define DS_NODE           			    wf_segment_t
 
 /* ################################################################### *
  * GLOBALS
@@ -240,8 +240,8 @@ test(void* thread)
         my_putting_count++;            
       }                 
       else if(unlikely(c <= scale_rem))         
-      {                 
-        void* removed;              
+      {               
+        void* removed = ((void*) 0);              
         START_TS(2);              
         removed = DS_REMOVE(set, ID);   
         sum_deq += (uint64_t) removed;
@@ -253,7 +253,7 @@ test(void* thread)
         }               
         END_TS_ELSE(5, my_removing_count - my_removing_count_succ,  
         my_removing_fail);          
-        my_removing_count++;            
+        my_removing_count++;           
       }                 
       cpause((num_threads-1)*32); 
     }
@@ -268,7 +268,6 @@ test(void* thread)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
-
     }
 
   barrier_cross(&barrier);

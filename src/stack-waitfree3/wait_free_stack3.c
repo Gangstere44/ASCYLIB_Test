@@ -30,7 +30,7 @@ wf_segment_t* wf_new_segment(uint64_t id, wf_segment_t* prev) {
 	new_seg->id = id;
 	uint64_t i;
 	for(i = 0; i < W; i++) {
-		new_seg->cells[i] = NULL;
+		new_seg->cells[i] = EMPTY;
 	}
 
 	return new_seg;
@@ -38,8 +38,7 @@ wf_segment_t* wf_new_segment(uint64_t id, wf_segment_t* prev) {
 
 cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
-	cell_t* result = NULL;
-	wf_segment_t* top;
+	//printf("0");
 
 	if(s->top == NULL) {
 
@@ -50,28 +49,32 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
 	}
 
-	while(result == NULL) {
-
-		top = s->top;
-
-		if(top->id * W > cell_id) {
-
-			top = top->prev;
-
-		} else if(top->id* W + W - 1 < cell_id) {
-
-			wf_segment_t* tmp = wf_new_segment(top->id + 1, top);
-			if(!CAS_U64_bool(&s->top, top, tmp)) {
-				ssmem_free(alloc_wf, (void*) tmp);
-			}
-			
-		} else {
-
-			result = &top->cells[cell_id % W];
-		}
+	wf_segment_t* tmp = s->top;
+	while(tmp == NULL) {
+	//	printf("1");
+		tmp = s->top;
 	}
 
-	return result;
+	while(tmp->id * W + W - 1 < cell_id) {
+	//	printf("3");
+		wf_segment_t* tmp_next = wf_new_segment(tmp->id + 1, tmp);
+		if(!CAS_U64_bool(&s->top, tmp, tmp_next)) {
+			ssmem_free(alloc_wf, (void*) tmp_next);
+		}
+		tmp = s->top;
+	}
+
+	while(tmp->id * W > cell_id) {
+	//	printf("2");
+		tmp = tmp->prev;
+	}
+	
+	if(cell_id < tmp->id * W || cell_id > tmp->id * W + W - 1) {
+		printf("cata : cell_id = %lu, seg id = %lu\n\n", cell_id, tmp->id);
+	}
+
+
+	return &tmp->cells[cell_id % W];
 }
 
 uint64_t stack_size(wf_stack_t* s) {
@@ -79,18 +82,23 @@ uint64_t stack_size(wf_stack_t* s) {
 	uint64_t n_elem = 0;
 	wf_segment_t* tmp = s->top;
 
+	uint64_t remain = 0;
+
 	while(tmp != NULL) {
 
 		uint64_t i;
 		for(i = 0; i < W; i++) {
 
-			if(tmp->cells[i] != NULL && tmp->cells[i] != MARKED) {
+			if(tmp->cells[i] != EMPTY && tmp->cells[i] != MARKED) {
 				n_elem++;
+				remain += (uint64_t) tmp->cells[i];
 			}
 		}
 
 		tmp = tmp->prev;
 	}
+
+	printf("remain in the stack : %lu \n", remain);
 
 	return n_elem;
 }
@@ -110,6 +118,8 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
         while(tmp != NULL) {
 
+        //	printf("pop\n");
+
 			uint64_t i;
 			for(i = 0; i < W; i++) {
 
@@ -119,7 +129,7 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
 					if(CAS_U64_bool(&tmp->cells[i], val, MARKED)) {
 
-//                       try_clean_up(s, tid);
+                        try_clean_up(s, tid);
 
 						return val;
 					}
@@ -127,17 +137,16 @@ void* pop(wf_stack_t* s, int64_t tid) {
 			}
 
 			tmp = tmp->prev;
-
         }
 
-//      try_clean_up(s, tid);
+        try_clean_up(s, tid);
 
         return EMPTY;
 }
 
 void try_clean_up(wf_stack_t* s, int64_t tid) {
 
-	if(s->clean_tid != -1) {
+	if(s->clean_tid != -1 || s->top == NULL) {
 			return;
 	}
 
@@ -173,50 +182,3 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 	}
 }
 
-
-/*
-void try_clean_up(wf_stack_t* s, int64_t tid) {
-
-        if(s->clean_tid != -1) {
-                return;
-        }
-
-        if(CAS_U64_bool(&s->clean_tid, -1, tid)) {
-
-                node_t* left = s->top;
-                node_t* right = left->prev;
-
-                int64_t cover_node = 0;
-                while(right->push_tid != -1) {
-
-                        if(cover_node >= W) {
-                                cover_node = 0;
-                                clean(left, right);
-                                left->prev = right;
-                        }
-
-                        if(right->mark) {
-                                cover_node++;
-                        } else {
-                                left = right;
-                                cover_node = 0;
-                        }
-
-                        right = right->prev;
-                }
-
-                s->clean_tid = -1;
-        }
-}
-
-void clean(node_t* left, node_t* right) {
-
-        left = left->prev;
-        node_t* tmp;
-        while(left->index != right->index) {
-                tmp = left;
-                left = left->prev;
-                ssmem_free(alloc_wf, (void*) tmp);
-        }
-}
-*/

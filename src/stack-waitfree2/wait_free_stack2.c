@@ -71,85 +71,118 @@ uint64_t stack_size(wf_stack_t* s) {
 	return n_elem;
 }
 
+int64_t tid_to_help(wf_stack_t* s, int64_t tid) {
+
+	int64_t to_help = s->handles[tid].ttd;
+	s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
+	if(s->handles[tid].ttd == tid) {
+		s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
+	}
+
+	return to_help;
+}
+
 void push(wf_stack_t* s, int64_t tid, void* value) {
-	
+		//printf("push tid %ld \n", tid);
+
 	node_t* new_node = init_node(value, tid);
 	
+	
 	uint64_t i;
-	for(i = 0 ; i < PATIENCE ; i++) {
+	for(i = 0 ; i < PATIENCE/4 ; i++) {
 		
-		if(push_fast(s, new_node, tid)) {
+		if(push_fast(s, new_node)) {
+
+			// try to help on of our peer
+			int64_t to_help = tid_to_help(s, tid);
+			push_slow(s, to_help);
+
 			return;
 		}
 	}
-		
-	push_slow(s, new_node, tid);
+
+	post_request(s, new_node, tid);
+	push_slow(s, tid);
 }
 
-bool push_fast(wf_stack_t* s, node_t* n, int64_t tid) {
+bool push_fast(wf_stack_t* s, node_t* n) {
 	
 	node_t* last = s->top;
 	
-	if(CAS_U64_bool(&last->next_done, NULL, n)) {
+	// now we can try to push our node, if it's not
+	// already done
+	if(last != n && n->index == 0 && CAS_U64_bool(&last->next_done, NULL, n)) {
 		
-		last = s->top;
-		node_t* next = last->next_done;
-		
-		if(next == n) {
-			
-			n->prev = last;
-			n->index = last->index + 1;
-			
-			bool stat = CAS_U64_bool(&s->top, last, next);
-			
-			CAS_U64_bool(&last->next_done, n, (void*) 1);		
+		if(n->index > 0) {
+			last->next_done = NULL;
+		} else {
+
+			if(CAS_U64_bool(&n->prev, NULL, last)) {
+				n->index = last->index + 1;
+				s->top = n;
+			} else {
+				last->next_done = NULL;
+			}
 		}
-		
+
 		return true;
 	}
 	
 	return false;
 }
 
-void push_slow(wf_stack_t* s, node_t* n, int64_t tid) {
-	
+void post_request(wf_stack_t* s, node_t* n, int64_t tid) {
+
 	if(s->announces[tid] != NULL) {
-		
-		if(s->announces[tid]->node->prev == NULL) {
-			//ssmem_free()
-		} 
 		
 		ssmem_free(alloc_wf, (void*) s->announces[tid]);
 	}
-	
+
 	push_op_t* req = init_push_op(n);
 	s->announces[tid] = req;
-	
-	while(!req->pushed && !n->mark) {
-		
-		if(push_fast(s, n, tid)) {
-			req->pushed = true;
-		}
-	}
-	
-	// make sure to say to my helper that my request is finally pushed
-	req->pushed = true; 
 }
 
-node_t* pop(wf_stack_t* s, int64_t tid) {
+void push_slow(wf_stack_t* s, int64_t tid) {
 	
+	push_op_t* req = s->announces[tid];
+
+	if(req != NULL && !req->pushed) {
+
+		node_t* n = req->node;
+
+		while(!req->pushed && !n->mark) {
+
+			if(push_fast(s, n)) {
+				req->pushed = true;
+			}
+		}
+		
+		if(!req->pushed) {
+			if(CAS_U64_bool(&req->pushed, false, true) &&
+				CAS_U64_bool(&n->prev, NULL, MARK_FOR_DEL)) {
+
+				ssmem_free(alloc_wf, (void*) n);
+			}
+		} 
+	}
+}
+
+void* pop(wf_stack_t* s, int64_t tid) {
+	
+	//printf("pop tid %ld \n", tid);
+
 	node_t* cur = NULL;
 	int64_t i;
 	for(i = 0; i < PATIENCE; i++) {
 		if(fast_pop(s, tid, &cur)) {
 					
+			try_clean_up(s, tid);
+
 			return cur->value;
 		}
 	}
 	
 	slow_pop(s, tid, &cur);
-
-	
 
 	if(cur->push_tid == -1) {
 
@@ -165,12 +198,9 @@ node_t* pop(wf_stack_t* s, int64_t tid) {
 
 bool fast_pop(wf_stack_t* s, int64_t tid, node_t** ret_n) {
 	
-	int64_t to_help = s->handles[tid].ttd;
-	s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
-	if(s->handles[tid].ttd == tid) {
-		s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
-	}
+	int64_t to_help = tid_to_help(s, tid);
 	
+	// try to get a slow push
 	push_op_t* push_req = s->announces[to_help];
 	
 	if(push_req != NULL && !push_req->pushed) {
@@ -183,6 +213,7 @@ bool fast_pop(wf_stack_t* s, int64_t tid, node_t** ret_n) {
 		}
 	}
 
+	// fast pop failed
 	return false;
 }
 

@@ -13,9 +13,10 @@
 #include "atomic_ops_if.h"
 #include "getticks.h"
 
-#define W 5
+#define W 1
+#define MARK_FOR_DEL ((void*) 1)
 #define EMPTY_STACK 0
-#define PATIENCE 10
+#define PATIENCE 8
 
 extern __thread ssmem_allocator_t* alloc_wf;
 
@@ -64,13 +65,15 @@ wf_stack_t* init_wf_stack(uint64_t num_thr);
 node_t* init_node(void* value, int64_t push_tid);
 push_op_t* init_push_op(node_t* n);
 
+int64_t tid_to_help(wf_stack_t* s, int64_t tid);
 uint64_t stack_size(wf_stack_t* s);
 
 void push(wf_stack_t* s, int64_t tid, void* value);
-bool push_fast(wf_stack_t* s, node_t* n, int64_t tid);
-void push_slow(wf_stack_t* s, node_t* n, int64_t tid);
+bool push_fast(wf_stack_t* s, node_t* n);
+void post_request(wf_stack_t* s, node_t* n, int64_t tid);
+void push_slow(wf_stack_t* s, int64_t tid);
 
-node_t* pop(wf_stack_t* s, int64_t tid);
+void* pop(wf_stack_t* s, int64_t tid);
 bool fast_pop(wf_stack_t* s, int64_t tid, node_t** ret_n);
 void slow_pop(wf_stack_t* s, int64_t tid, node_t** ret_n);
 
