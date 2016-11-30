@@ -21,14 +21,14 @@ extern __thread ssmem_allocator_t* alloc_wf;
 
 typedef struct cell {
 
-	void* value;
+	void* volatile value;
 
 } cell_t;
 
 typedef struct wf_segment
 {
 	uint64_t id;
-	struct wf_segment* prev;
+	struct wf_segment* volatile prev;
 	void* cells[W];
 
 } wf_segment_t;
@@ -43,8 +43,8 @@ typedef struct wf_stack {
 
 	uint64_t num_thr;
 
-	uint64_t top_id;
-	wf_segment_t* top;
+	volatile uint64_t top_id;
+	wf_segment_t* volatile top;
 
 	handle_t* handles;
 
