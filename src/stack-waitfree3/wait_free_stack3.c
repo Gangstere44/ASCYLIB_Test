@@ -69,11 +69,6 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 		tmp = tmp->prev;
 	}
 	
-	if(cell_id < tmp->id * W || cell_id > tmp->id * W + W - 1) {
-		printf("cata : cell_id = %lu, seg id = %lu\n\n", cell_id, tmp->id);
-	}
-
-
 	return &tmp->cells[cell_id % W];
 }
 
@@ -114,11 +109,30 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 
 void* pop(wf_stack_t* s, int64_t tid) {
 
-        wf_segment_t* tmp = s->top;
+	if(s->num_thr == 1) {
 
-        while(tmp != NULL) {
+		uint64_t cell_id = s->top_id - 1;
+		if(cell_id == -1) {
+			return EMPTY;
+		}
 
-        //	printf("pop\n");
+		s->top_id--;
+
+		cell_t* c = wf_find_cell(s, cell_id);
+		void* result = c->value;
+
+		c->value = MARKED;
+
+		if(cell_id % W == 0) {
+			try_clean_up(s, tid);
+		}
+
+		return result;
+
+	} else {
+	    wf_segment_t* tmp = s->top;
+
+	    while(tmp != NULL) {
 
 			uint64_t i;
 			for(i = 0; i < W; i++) {
@@ -129,7 +143,7 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
 					if(CAS_U64_bool(&tmp->cells[i], val, MARKED)) {
 
-                        try_clean_up(s, tid);
+	                    try_clean_up(s, tid);
 
 						return val;
 					}
@@ -137,14 +151,26 @@ void* pop(wf_stack_t* s, int64_t tid) {
 			}
 
 			tmp = tmp->prev;
-        }
+	    }
 
-        try_clean_up(s, tid);
+	    try_clean_up(s, tid);
 
-        return EMPTY;
+	    return EMPTY;
+	}
 }
 
 void try_clean_up(wf_stack_t* s, int64_t tid) {
+
+	if(s->num_thr == 1) {
+
+		wf_segment_t* last = s->top;
+		if(last->id != 0) {
+			s->top = last->prev;
+			ssmem_free(alloc_wf, (void*) last);
+		}
+
+		return;
+	}
 
 	if(s->clean_tid != -1 || s->top == NULL) {
 			return;

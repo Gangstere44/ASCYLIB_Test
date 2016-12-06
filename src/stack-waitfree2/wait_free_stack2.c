@@ -87,22 +87,30 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 
 	node_t* new_node = init_node(value, tid);
 	
-	
-	uint64_t i;
-	for(i = 0 ; i < PATIENCE/4 ; i++) {
+	if(s->num_thr == 1) {
+
+		node_t* last = s->top;
+		new_node->prev = last;
+		s->top = new_node;
+
+	} else {
 		
-		if(push_fast(s, new_node)) {
+		uint64_t i;
+		for(i = 0 ; i < PATIENCE/4; i++) {
+			
+			if(push_fast(s, new_node)) {
 
-			// try to help on of our peer
-			int64_t to_help = tid_to_help(s, tid);
-			push_slow(s, to_help);
+				// try to help on of our peer
+				int64_t to_help = tid_to_help(s, tid);
+				push_slow(s, to_help);
 
-			return;
+				return;
+			}
 		}
-	}
 
-	post_request(s, new_node, tid);
-	push_slow(s, tid);
+		post_request(s, new_node, tid);
+		push_slow(s, tid);
+	}
 }
 
 bool push_fast(wf_stack_t* s, node_t* n) {
@@ -169,31 +177,47 @@ void push_slow(wf_stack_t* s, int64_t tid) {
 
 void* pop(wf_stack_t* s, int64_t tid) {
 	
-	//printf("pop tid %ld \n", tid);
+	if(s->num_thr == 1) {
+		
+		node_t* last = s->top;
 
-	node_t* cur = NULL;
-	int64_t i;
-	for(i = 0; i < PATIENCE; i++) {
-		if(fast_pop(s, tid, &cur)) {
-					
-			try_clean_up(s, tid);
-
-			return cur->value;
+		if(last->push_tid == -1) {
+			return EMPTY_STACK;
 		}
+		
+		void* result = last->value;
+		s->top = last->prev;
+
+		ssmem_free(alloc_wf, (void*) last);
+
+		return result;
+
+	} else {
+
+		node_t* cur = NULL;
+		int64_t i;
+		for(i = 0; i < PATIENCE; i++) {
+			if(fast_pop(s, tid, &cur)) {
+						
+				try_clean_up(s, tid);
+
+				return cur->value;
+			}
+		}
+		
+		slow_pop(s, tid, &cur);
+
+		if(cur->push_tid == -1) {
+
+			return EMPTY_STACK;
+		}
+
+		void* result = cur->value;
+
+		try_clean_up(s, tid);
+
+		return result;
 	}
-	
-	slow_pop(s, tid, &cur);
-
-	if(cur->push_tid == -1) {
-
-		return EMPTY_STACK;
-	}
-
-	void* result = cur->value;
-
-	try_clean_up(s, tid);
-
-	return result;
 }
 
 bool fast_pop(wf_stack_t* s, int64_t tid, node_t** ret_n) {
