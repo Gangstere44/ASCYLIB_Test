@@ -37,7 +37,7 @@ wf_segment_t* wf_new_segment(uint64_t id, wf_segment_t* prev) {
 	return new_seg;
 }
 
-cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
+cell_t* wf_find_cell(wf_stack_t* s, wf_segment_t** seg, uint64_t cell_id) {
 
 	if(s->top == NULL) {
 
@@ -48,7 +48,8 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
 	}
 
-	wf_segment_t* tmp = s->top;
+	//wf_segment_t* tmp = s->top;
+	wf_segment_t* tmp = *seg;
 	while(tmp == NULL) {
 		tmp = s->top;
 	}
@@ -65,6 +66,8 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 		tmp = tmp->prev;
 	}
 	
+	*seg = tmp;
+
 	return &tmp->cells[cell_id % W];
 }
 
@@ -100,14 +103,40 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 	while(!success) {
 		uint64_t cell_id = FAI_U64(&s->top_id);
 
-		cell_t* c = wf_find_cell(s, cell_id);
+		wf_segment_t* tmp = s->top;
+		cell_t* c = wf_find_cell(s, &tmp, cell_id);
 
 		c->value = value;
 		
 		if(s->num_thr > 1) {
+
+			uint64_t i;
+			for(i = 0; i < PATIENCE_LINEAR && !success; i++) {
+				if(s->real_top_id == cell_id) {
+					CAS_U64_bool(&s->real_top_id, cell_id, cell_id + 1);
+				}
+
+				if(s->real_top_id > cell_id) {
+					success = true;
+				}
+			}
+
+			if(!success) {
+
+			    for(i = cell_id - 1; i >= s->real_top_id; i--) {
+			    	while(wf_find_cell(s, &tmp, i)->value == EMPTY);
+			    }
+
+			    if(s->real_top_id <= cell_id) {
+			    	CAS_U64_bool(&s->real_top_id, s->real_top_id, cell_id + 1);
+			    }
+			}
+
+			/*
 			while(s->real_top_id != cell_id);
 			
 			s->real_top_id++;
+			*/
 		
 			success = true;
 		} else {
@@ -127,7 +156,8 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
 		s->top_id--;
 
-		cell_t* c = wf_find_cell(s, cell_id);
+		wf_segment_t* tmp = s->top;
+		cell_t* c = wf_find_cell(s, &tmp, cell_id);
 		void* result = c->value;
 
 		c->value = MARKED;

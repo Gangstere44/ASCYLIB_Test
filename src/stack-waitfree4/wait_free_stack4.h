@@ -16,7 +16,7 @@
 #define EMPTY ((void*) 0)
 #define MARKED ((void*) 1)
 #define PATIENCE 10
-#define PATIENCE_LINEAR 10
+#define PATIENCE_LINEAR 5
 
 extern __thread ssmem_allocator_t* alloc_wf;
 
@@ -57,7 +57,7 @@ typedef struct wf_stack {
 wf_stack_t* init_wf_stack(uint64_t num_thr);
 wf_segment_t* wf_new_segment(uint64_t id, wf_segment_t* prev);
 
-cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id);
+cell_t* wf_find_cell(wf_stack_t* s, wf_segment_t** seg, uint64_t cell_id);
 uint64_t stack_size(wf_stack_t* s);
 
 void push(wf_stack_t* s, int64_t tid, void* value);
