@@ -1,5 +1,5 @@
 
-#include "wait_free_stack3.h"
+#include "wait_free_stack4.h"
 
 __thread ssmem_allocator_t* alloc_wf;
 
@@ -39,8 +39,6 @@ wf_segment_t* wf_new_segment(uint64_t id, wf_segment_t* prev) {
 
 cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
-	//printf("0");
-
 	if(s->top == NULL) {
 
 		wf_segment_t* tmp = wf_new_segment(0, NULL);
@@ -52,12 +50,10 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
 	wf_segment_t* tmp = s->top;
 	while(tmp == NULL) {
-	//	printf("1");
 		tmp = s->top;
 	}
 
 	while(tmp->id * W + W - 1 < cell_id) {
-	//	printf("3");
 		wf_segment_t* tmp_next = wf_new_segment(tmp->id + 1, tmp);
 		if(!CAS_U64_bool(&s->top, tmp, tmp_next)) {
 			ssmem_free(alloc_wf, (void*) tmp_next);
@@ -66,7 +62,6 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 	}
 
 	while(tmp->id * W > cell_id) {
-	//	printf("2");
 		tmp = tmp->prev;
 	}
 	
@@ -100,7 +95,7 @@ uint64_t stack_size(wf_stack_t* s) {
 }
 
 void push(wf_stack_t* s, int64_t tid, void* value) {
-	
+
 	bool success = false;
 	while(!success) {
 		uint64_t cell_id = FAI_U64(&s->top_id);
@@ -109,12 +104,15 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 
 		c->value = value;
 		
-		while(s->real_top_id != cell_id);
+		if(s->num_thr > 1) {
+			while(s->real_top_id != cell_id);
+			
+			s->real_top_id++;
 		
-		s->real_top++;
-		
-		success = true;
-		
+			success = true;
+		} else {
+			success = true;
+		}	
 	}
 }
 
@@ -145,15 +143,15 @@ void* pop(wf_stack_t* s, int64_t tid) {
 		uint64_t top_index = s->real_top_id;
 	    wf_segment_t* tmp = s->top;
 		
-		while(tmp->id * W > top_index) {
+		while(tmp != NULL && tmp->id * W > top_index) {
 			tmp = tmp->prev;
 		}
 		
 	    while(tmp != NULL) {
 
+	    	int64_t i;
 			for(i = W - 1; i >= 0; i--) {
-	
-				if(top_index <= W * tmp->id + i) {
+				if(top_index >= W * tmp->id + i) {
 					void* val = tmp->cells[i];
 
 					if(val != EMPTY && val != MARKED) {

@@ -134,8 +134,8 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
 	    while(tmp != NULL) {
 
-			uint64_t i;
-			for(i = 0; i < W; i++) {
+			int64_t i;
+			for(i = W - 1; i >= 0; i--) {
 
 				void* val = tmp->cells[i];
 

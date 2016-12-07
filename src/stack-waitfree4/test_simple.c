@@ -48,7 +48,7 @@
 #endif
 
 // ADDED
-#include "wait_free_stack3.h"
+#include "wait_free_stack4.h"
 #include "intset.h"
 
 /* ################################################################### *
