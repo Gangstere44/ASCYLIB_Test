@@ -37,6 +37,12 @@ typedef struct handle {
 
 	int64_t ttd; // tid_to_help
 
+	uint64_t pop1_lat;
+	uint64_t pop1_count;
+
+	uint64_t pop2_lat;
+	uint64_t pop2_count;
+
 } handle_t;
 
 typedef struct wf_stack {

@@ -16,7 +16,15 @@
 #define W 1
 #define MARK_FOR_DEL ((void*) 1)
 #define EMPTY_STACK 0
-#define PATIENCE 8
+
+#define MAX_PUSH_PATIENCE 10
+#define MIN_PUSH_PATIENCE 3
+
+#define MAX_POP_PATIENCE 10
+#define MIN_POP_PATIENCE 1
+
+#define MAX_NODE_TO_FREE 100
+#define MIN_NODE_TO_FREE 5
 
 extern __thread ssmem_allocator_t* alloc_wf;
 
@@ -45,6 +53,15 @@ typedef struct push_op {
 typedef struct handle {
 	
 	int64_t ttd; // tid_to_help
+
+	uint64_t push_patience;
+	uint64_t pop_patience;
+
+	uint64_t pop1_lat;
+	uint64_t pop1_count;
+
+	uint64_t pop2_lat;
+	uint64_t pop2_count;
 	
 } handle_t;
 
@@ -58,6 +75,7 @@ typedef struct wf_stack {
 	push_op_t* volatile * announces; 
 	
 	volatile int64_t clean_tid;
+	uint64_t node_to_free;
 	
 } wf_stack_t;
 

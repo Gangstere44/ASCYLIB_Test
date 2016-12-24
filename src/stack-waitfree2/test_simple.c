@@ -269,6 +269,8 @@ test(void* thread)
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
 
+      print_profiling(set);
+
     }
 
   barrier_cross(&barrier);
