@@ -17,11 +17,11 @@
 #define MARK_FOR_DEL ((void*) 1)
 #define EMPTY_STACK 0
 
-#define MAX_PUSH_PATIENCE 10
-#define MIN_PUSH_PATIENCE 0
+#define MAX_PUSH_PATIENCE 5
+#define MIN_PUSH_PATIENCE 1
 
 #define MAX_POP_PATIENCE 10
-#define MIN_POP_PATIENCE 0
+#define MIN_POP_PATIENCE 1 
 
 #define MAX_NODE_TO_FREE 100
 #define MIN_NODE_TO_FREE 5

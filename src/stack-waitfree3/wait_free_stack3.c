@@ -87,7 +87,7 @@ wf_stack_t* init_wf_stack(uint64_t num_thr) {
 		new_stack->handles[i].push_count = 0;
 	}
 
-	new_stack->seg_to_free = MIN_SEG_TO_FREE;
+	
 	new_stack->clean_tid = -1;
 
 	return new_stack;
@@ -159,22 +159,23 @@ cell_t* wf_find_cell(wf_stack_t* s, uint64_t cell_id) {
 
 void push(wf_stack_t* s, int64_t tid, void* value) {
 	
-	START_TS();
+//	START_TS();
 	
 	uint64_t cell_id = FAI_U64(&s->top_id);
 
 	cell_t* c = wf_find_cell(s, cell_id);
 	
 	c->value = value;
-	
+/*	
 	END_TS();
 	ADD_DUR(s->handles[tid].push_lat);
 	s->handles[tid].push_count++;
+*/
 }
 
 void* pop(wf_stack_t* s, int64_t tid) {
 
-	START_TS();
+//	START_TS();
 
     wf_segment_t* tmp = s->top;
 
@@ -191,10 +192,10 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
                     try_clean_up(s, tid);
 
-            		END_TS();
+  /*          		END_TS();
 					ADD_DUR(s->handles[tid].pop1_lat);
 					s->handles[tid].pop1_count++;
-
+*/
 					return val;
 				}
 			}
@@ -205,24 +206,24 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
     try_clean_up(s, tid);
 
-
+/*
 	END_TS();
 	ADD_DUR(s->handles[tid].pop1_lat);
 	s->handles[tid].pop1_count++;		
-
+*/
     return EMPTY;
 }
 
 void try_clean_up(wf_stack_t* s, int64_t tid) {
 
-	START_TS();
+//	START_TS();
 
 	if(s->clean_tid != -1 || s->top->id == -1 || s->top->prev->id == -1) {
-
+/*
 			END_TS();
 			ADD_DUR(s->handles[tid].pop2_lat);
 			s->handles[tid].pop2_count++;
-
+*/
 			return;
 	}
 
@@ -252,14 +253,15 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 
 		s->clean_tid = -1;
 	}
-
+/*
 	END_TS();
 	ADD_DUR(s->handles[tid].pop2_lat);
 	s->handles[tid].pop2_count++;
+*/
 }
 
 void print_profiling(wf_stack_t* s) {
-
+/*
 	handle_t h = {0, 0, 0, 0, 0, 0};
 
 	uint64_t i;
@@ -280,10 +282,10 @@ void print_profiling(wf_stack_t* s) {
 	h.pop2_lat /= h.pop2_count;
 
 	h.push_lat /= h.push_count;
-
-	printf("/***** LATENCY *****/ \n");
-	printf("Pop1 : \t %lu  \nPop2 : \t %lu \nPush: \t %lu\n", h.pop1_lat, h.pop2_lat, h.push_lat);
-	printf("/*******************/\n");
+*/
+//	printf("/***** LATENCY *****/ \n");
+//	printf("Pop1 : \t %lu  \nPop2 : \t %lu \nPush: \t %lu\n", h.pop1_lat, h.pop2_lat, h.push_lat);
+//	printf("/*******************/\n");
 
 }
 

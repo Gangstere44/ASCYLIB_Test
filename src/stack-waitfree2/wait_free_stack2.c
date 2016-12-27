@@ -151,7 +151,7 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 		}
 	}
 	
-	s->handles[tid].push_patience = min(MAX_PUSH_PATIENCE, s->handles[tid].push_patience - 1);
+	s->handles[tid].push_patience = max(MIN_PUSH_PATIENCE, s->handles[tid].push_patience * (2.0/3.0)- 1);
 
 
 	post_request(s, new_node, tid);
@@ -223,25 +223,25 @@ void push_slow(wf_stack_t* s, int64_t tid) {
 
 void* pop(wf_stack_t* s, int64_t tid) {
 	
-	START_TS();
+//	START_TS();
 
 	node_t* cur = NULL;
 	int64_t i;
-	//s->handles[tid].pop_patience = min(MAX_POP_PATIENCE, s->handles[tid].pop_patience + 1);
+	s->handles[tid].pop_patience = min(MAX_POP_PATIENCE, s->handles[tid].pop_patience + 1);
 	for(i = 0; i < s->handles[tid].pop_patience; i++) {
 		if(fast_pop(s, tid, &cur)) {
 
 			try_clean_up(s, tid);
-
+/*
 			END_TS();
 			ADD_DUR(s->handles[tid].pop1_lat);
 			s->handles[tid].pop1_count++;
-
+*/
 			return cur->value;
 		}
 	}
 
-	//s->handles[tid].pop_patience = max(MIN_POP_PATIENCE, s->handles[tid].pop_patience * (2.0/3.0) - 1);
+	s->handles[tid].pop_patience = max(MIN_POP_PATIENCE, s->handles[tid].pop_patience * (3.0/4.0) - 1);
 	
 	slow_pop(s, tid, &cur);
 
@@ -253,11 +253,11 @@ void* pop(wf_stack_t* s, int64_t tid) {
 	void* result = cur->value;
 
 	try_clean_up(s, tid);
-
+/*
 	END_TS();
 	ADD_DUR(s->handles[tid].pop1_lat);
 	s->handles[tid].pop1_count++;
-
+*/
 	return result;
 	
 }
@@ -309,7 +309,7 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 		return;
 	}
 	
-	START_TS();
+//	START_TS();
 
 	if(CAS_U64_bool(&s->clean_tid, -1, tid)) {
 		
@@ -341,11 +341,13 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 		
 		s->clean_tid = -1;
 	}
-
+/*
 	END_TS();
 	ADD_DUR(s->handles[tid].pop2_lat);
 	s->handles[tid].pop2_count++;
+*/
 }
+
 
 void print_profiling(wf_stack_t* s) {
 
