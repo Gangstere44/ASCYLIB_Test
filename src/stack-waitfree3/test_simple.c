@@ -205,6 +205,7 @@ test(void* thread)
   if (!ID)
     {
       printf("#BEFORE size is: %zu\n", (size_t) DS_SIZE(set));
+
     }
 
 
@@ -268,6 +269,8 @@ test(void* thread)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
+
+      print_profiling(set);
     }
 
   barrier_cross(&barrier);
