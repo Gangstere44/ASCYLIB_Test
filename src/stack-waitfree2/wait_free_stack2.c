@@ -139,12 +139,10 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 	node_t* new_node = init_node(value, tid);
 	
 	uint64_t i;
+	s->handles[tid].push_patience = min(MAX_PUSH_PATIENCE, s->handles[tid].push_patience + 1);
 	for(i = 0 ; i < s->handles[tid].push_patience; i++) {
 		
 		if(push_fast(s, new_node)) {
-
-			//s->handles[tid].push_patience = max(MIN_PUSH_PATIENCE, s->handles[tid].push_patience - 1);
-
 			// try to help on of our peer
 			int64_t to_help = tid_to_help(s, tid);
 			push_slow(s, to_help);
@@ -153,7 +151,7 @@ void push(wf_stack_t* s, int64_t tid, void* value) {
 		}
 	}
 	
-	//s->handles[tid].push_patience = min(MAX_PUSH_PATIENCE, s->handles[tid].push_patience + 1);
+	s->handles[tid].push_patience = min(MAX_PUSH_PATIENCE, s->handles[tid].push_patience - 1);
 
 
 	post_request(s, new_node, tid);
@@ -229,10 +227,9 @@ void* pop(wf_stack_t* s, int64_t tid) {
 
 	node_t* cur = NULL;
 	int64_t i;
+	//s->handles[tid].pop_patience = min(MAX_POP_PATIENCE, s->handles[tid].pop_patience + 1);
 	for(i = 0; i < s->handles[tid].pop_patience; i++) {
 		if(fast_pop(s, tid, &cur)) {
-					
-			//s->handles[tid].pop_patience = min(MAX_POP_PATIENCE, s->handles[tid].pop_patience + 1);
 
 			try_clean_up(s, tid);
 
@@ -244,7 +241,7 @@ void* pop(wf_stack_t* s, int64_t tid) {
 		}
 	}
 
-	//s->handles[tid].pop_patience = max(MIN_POP_PATIENCE, s->handles[tid].pop_patience - 1);
+	//s->handles[tid].pop_patience = max(MIN_POP_PATIENCE, s->handles[tid].pop_patience * (2.0/3.0) - 1);
 	
 	slow_pop(s, tid, &cur);
 
