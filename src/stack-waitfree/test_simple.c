@@ -47,15 +47,12 @@
 #  include <sys/procset.h>
 #endif
 
-// ADDED
 #include "wait_free_stack.h"
 #include "intset.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
  * ################################################################### */
-
- // CHANGED
 
 //#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
 #define DS_ADD(stack,tid,val)       push(stack,tid,val) 
@@ -187,17 +184,13 @@ test(void* thread)
 #if INITIALIZE_FROM_ONE == 1
   num_elems_thread = (ID == 0) * initial;
 #endif
-    /*
+    
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      
-      if(DS_ADD(set, key, key) == false)
-	{
-	  i--;
-	}
+	  DS_ADD(set, ID, (void*) key);   
     }
-	*/
+	
   MEM_BARRIER;
 
   barrier_cross(&barrier);
@@ -214,22 +207,15 @@ test(void* thread)
 
   RR_START_SIMPLE();
 
-  uint64_t sum_enq = 0;
-  uint64_t sum_deq = 0;
-
   while (stop == 0) 
     {
       c = (uint32_t)(my_random(&(seeds[0]),&(seeds[1]),&(seeds[2]))); 
       if (unlikely(c < scale_put))            
       {                 
-       // key = (c & rand_max) + rand_min;
-        key = (c % 5) + rand_min;    
-        int res;                
+        key = (c & rand_max) + rand_min;
         START_TS(1);    
-        res = 1;   
         DS_ADD(set, ID, (void*) key);   
-        sum_enq += (uint64_t) key;
-        if(res)           
+        if(true) // never fail to push           
         {               
           END_TS(1, my_putting_count_succ);       
           ADD_DUR(my_putting_succ);         
@@ -244,7 +230,6 @@ test(void* thread)
         void* removed;              
         START_TS(2);              
         removed = DS_REMOVE(set, ID);   
-        sum_deq += (uint64_t) removed;
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -262,14 +247,10 @@ test(void* thread)
   barrier_cross(&barrier);
   RR_STOP_SIMPLE();
 
-  //printf("for tid %u, enq %lu, deq %lu, - %lu \n", ID, sum_enq, sum_deq, (sum_enq - sum_deq));
-
   if (!ID)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
-
-      //print_latencies(set);
     }
 
   barrier_cross(&barrier);
@@ -424,7 +405,7 @@ main(int argc, char **argv)
 
   printf("## Initial: %zu / Range: %zu / ", initial, range);
 
-  printf("OPTIK algorithm\n");
+  printf("Wait-free stack algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;

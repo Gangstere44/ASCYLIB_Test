@@ -17,6 +17,8 @@
 #define MARK_FOR_DEL ((void*) 1)
 #define EMPTY_STACK 0
 
+/* this values should be computed
+   at run time */
 #define MAX_PUSH_PATIENCE 5
 #define MIN_PUSH_PATIENCE 1
 
@@ -36,7 +38,8 @@ typedef struct node {
 	volatile bool mark;
 	int64_t push_tid;
 	uint64_t index;
-
+	
+	// size 2 to get a total size of 64 bytes
 	uint64_t padding[2];
 
 } node_t;
@@ -45,7 +48,8 @@ typedef struct push_op {
 	
 	volatile bool pushed;
 	node_t* node;
-
+	
+	// size 6 to get a total size of 64 bytes
 	uint64_t padding[6];
 	
 } push_op_t;
@@ -53,15 +57,11 @@ typedef struct push_op {
 typedef struct handle {
 	
 	int64_t ttd; // tid_to_help
-
+	
+	/* every thread as its own patience
+	as some could work slower than other */
 	uint64_t push_patience;
 	uint64_t pop_patience;
-
-	uint64_t pop1_lat;
-	uint64_t pop1_count;
-
-	uint64_t pop2_lat;
-	uint64_t pop2_count;
 	
 } handle_t;
 

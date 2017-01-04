@@ -2,8 +2,8 @@ ROOT = ../..
 
 include $(ROOT)/common/Makefile.common
 
-ALGO_O = wait_free_stack2.o
-ALGO_C = wait_free_stack2.c
+ALGO_O = wait_free_stack_node.o
+ALGO_C = wait_free_stack_node.c
 
 BINS = "$(BINDIR)/wf-st_n$(BIN_SUFFIX)"
 PROF = $(ROOT)/src
@@ -33,7 +33,7 @@ $(ALGO_O): stack-lockfree.h
 intset.o: stack-lockfree.h stack-treiber.h htlock.o clh.o
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/intset.o intset.c
 
-test.o: stack-lockfree.h wait_free_stack2.h stack-treiber.h intset.h
+test.o: stack-lockfree.h wait_free_stack_node.h stack-treiber.h intset.h
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/test.o $(TEST_FILE)
 
 main: measurements.o ssalloc.o stack-lockfree.o $(ALGO_O) intset.o test.o clh.o

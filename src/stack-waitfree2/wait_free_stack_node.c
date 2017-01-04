@@ -1,32 +1,6 @@
 
 
-#include "wait_free_stack2.h"
-
-/********* PROFILING ********/
-
-volatile ticks correction = 0;
-
-#ifdef __tile__
-#  include <arch/atomic.h>
-#  define LFENCE arch_atomic_read_barrier()
-#elif defined(__sparc__)
-#  define LFENCE  asm volatile("membar #LoadLoad"); 
-#else 
-#  define LFENCE asm volatile ("lfence")
-#endif
-
-
-#  define START_TS()				\
-    asm volatile ("");				\
-    ticks start_acq = getticks();			\
-    LFENCE;
-#  define END_TS()				\
-    asm volatile ("");				\
-    ticks end_acq = getticks();			\
-    asm volatile ("");
-#  define ADD_DUR(tar) tar += (end_acq - start_acq - correction)
-
-/******* *******/
+#include "wait_free_stack_node.h"
 
 #define min(val1, val2) (val1 > val2 ? val2 : val1)
 #define max(val1, val2) (val1 > val2 ? val1 : val2)
@@ -34,18 +8,6 @@ volatile ticks correction = 0;
 __thread ssmem_allocator_t* alloc_wf;
 
 wf_stack_t* init_wf_stack(uint64_t num_thr) {
-
-/* +++++++ */
-	  ticks t_dur = 0;
-	  uint32_t j;
-	  for (j = 0; j < 1000000; j++) {
-	    ticks t_start = getticks();
-	    ticks t_end = getticks();
-	    t_dur += t_end - t_start;
-	  }
-	  correction = (ticks)(t_dur / (double) 1000000);
-
-	/* +++++++ */ 
 
 	wf_stack_t* new_stack = malloc(sizeof(wf_stack_t));
 	
@@ -62,12 +24,6 @@ wf_stack_t* init_wf_stack(uint64_t num_thr) {
 		new_stack->announces[i] = NULL;
 		
 		new_stack->handles[i].ttd = i == num_thr - 1 ? 0 : i + 1;
-	
-		new_stack->handles[i].pop1_lat = 0;
-		new_stack->handles[i].pop1_count = 0;
-		new_stack->handles[i].pop2_lat = 0;
-		new_stack->handles[i].pop2_count = 0;
-
 		new_stack->handles[i].push_patience = MAX_PUSH_PATIENCE;
 		new_stack->handles[i].pop_patience = MAX_POP_PATIENCE;
 	}
@@ -106,19 +62,16 @@ uint64_t stack_size(wf_stack_t* s) {
 	uint64_t n_elem = 0;
 	node_t* tmp = s->top;
 
-	volatile uint64_t rem = 0;
-	
 	while(tmp->push_tid != -1) {
-		rem++;
+
 		if(!tmp->mark) {
+			
 			n_elem++;
 		}
 
 		tmp = tmp->prev;	
 	}
 	
-	printf("\n\n stack total : %lu \n\n", rem);
-
 	return n_elem;
 }
 
@@ -126,7 +79,10 @@ int64_t tid_to_help(wf_stack_t* s, int64_t tid) {
 
 	int64_t to_help = s->handles[tid].ttd;
 	s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
+	
+	// thread_0 doesn't want to help thread_0 
 	if(s->handles[tid].ttd == tid) {
+		
 		s->handles[tid].ttd = (s->handles[tid].ttd + 1) % s->num_thr;
 	}
 
@@ -134,47 +90,54 @@ int64_t tid_to_help(wf_stack_t* s, int64_t tid) {
 }
 
 void push(wf_stack_t* s, int64_t tid, void* value) {
-		//printf("push tid %ld \n", tid);
 
 	node_t* new_node = init_node(value, tid);
 	
 	uint64_t i;
+	/* we increase the try of patience each time -> if it succeed each time
+	   it's a good sign -> we want to do it more */
 	s->handles[tid].push_patience = min(MAX_PUSH_PATIENCE, s->handles[tid].push_patience + 1);
 	for(i = 0 ; i < s->handles[tid].push_patience; i++) {
 		
 		if(push_fast(s, new_node)) {
-			// try to help on of our peer
-			int64_t to_help = tid_to_help(s, tid);
-			push_slow(s, to_help);
+			
+			// try to help one of our peer
+			push_slow(s, tid_to_help(s, tid);
 
 			return;
 		}
 	}
 	
+	/* if it fails we reduce the amount of push fast try, but we don't go back to 1 
+	   as we could only be unlucky this time */
 	s->handles[tid].push_patience = max(MIN_PUSH_PATIENCE, s->handles[tid].push_patience * (2.0/3.0)- 1);
-
 
 	post_request(s, new_node, tid);
 	push_slow(s, tid);
-
 }
 
 bool push_fast(wf_stack_t* s, node_t* n) {
 	
 	node_t* last = s->top;
 	
-	// now we can try to push our node, if it's not
-	// already done
+	/* now we can try to push our node, if it's not
+	   already done */
 	if(last != n && n->index == 0 && CAS_U64_bool(&last->next_done, NULL, n)) {
 		
-		if(n->index > 0) {
+		// check if somebody else did the job
+		if(n->index >= 1) {
+			
 			last->next_done = NULL;
 		} else {
-
+			
+			// we want only one thread to perform the next step
 			if(CAS_U64_bool(&n->prev, NULL, last)) {
+				
 				n->index = last->index + 1;
 				s->top = n;
+				
 			} else {
+				
 				last->next_done = NULL;
 			}
 		}
@@ -192,18 +155,20 @@ void post_request(wf_stack_t* s, node_t* n, int64_t tid) {
 		ssmem_free(alloc_wf, (void*) s->announces[tid]);
 	}
 
-	push_op_t* req = init_push_op(n);
-	s->announces[tid] = req;
+	s->announces[tid] = init_push_op(n);
 }
 
 void push_slow(wf_stack_t* s, int64_t tid) {
 	
 	push_op_t* req = s->announces[tid];
-
+	
 	if(req != NULL && !req->pushed) {
 
 		node_t* n = req->node;
-
+		
+		/* as long as the request isn't pushed OR
+		   the node we try to push isn't popped by 
+		   a pop_fast */
 		while(!req->pushed && !n->mark) {
 
 			if(push_fast(s, n)) {
@@ -211,7 +176,13 @@ void push_slow(wf_stack_t* s, int64_t tid) {
 			}
 		}
 		
+		/* if the req isn't pushed -> the node has been popped
+		   by a pop_fast -> we still need to complete the req */
 		if(!req->pushed) {
+			
+			/* if we are the one which pushed the req AND
+			   that we authorize the deletion of the node ->
+			   we delete the node */
 			if(CAS_U64_bool(&req->pushed, false, true) &&
 				CAS_U64_bool(&n->prev, NULL, MARK_FOR_DEL)) {
 
@@ -223,8 +194,6 @@ void push_slow(wf_stack_t* s, int64_t tid) {
 
 void* pop(wf_stack_t* s, int64_t tid) {
 	
-//	START_TS();
-
 	node_t* cur = NULL;
 	int64_t i;
 	s->handles[tid].pop_patience = min(MAX_POP_PATIENCE, s->handles[tid].pop_patience + 1);
@@ -232,11 +201,7 @@ void* pop(wf_stack_t* s, int64_t tid) {
 		if(fast_pop(s, tid, &cur)) {
 
 			try_clean_up(s, tid);
-/*
-			END_TS();
-			ADD_DUR(s->handles[tid].pop1_lat);
-			s->handles[tid].pop1_count++;
-*/
+
 			return cur->value;
 		}
 	}
@@ -253,11 +218,7 @@ void* pop(wf_stack_t* s, int64_t tid) {
 	void* result = cur->value;
 
 	try_clean_up(s, tid);
-/*
-	END_TS();
-	ADD_DUR(s->handles[tid].pop1_lat);
-	s->handles[tid].pop1_count++;
-*/
+
 	return result;
 	
 }
@@ -309,8 +270,6 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 		return;
 	}
 	
-//	START_TS();
-
 	if(CAS_U64_bool(&s->clean_tid, -1, tid)) {
 		
 		node_t* left = s->top;
@@ -341,39 +300,5 @@ void try_clean_up(wf_stack_t* s, int64_t tid) {
 		
 		s->clean_tid = -1;
 	}
-/*
-	END_TS();
-	ADD_DUR(s->handles[tid].pop2_lat);
-	s->handles[tid].pop2_count++;
-*/
-}
 
-
-void print_profiling(wf_stack_t* s) {
-
-	handle_t h = {0, 0, 0, 0, 0};
-
-	uint64_t i;
-	for(i = 0; i < s->num_thr; i++) {
-		h.pop1_lat += s->handles[i].pop1_lat;
-		h.pop1_count += s->handles[i].pop1_count;
-
-		h.pop2_lat += s->handles[i].pop2_lat;
-		h.pop2_count += s->handles[i].pop2_count;
-	}
-
-	h.pop1_lat -= h.pop2_lat;
-	h.pop1_lat /= h.pop1_count;
-
-	h.pop2_lat /= h.pop2_count;
-
-	printf("/***** LATENCY *****/ \n");
-	printf("Pop1 : \t %lu  \nPop2 : \t %lu \n", h.pop1_lat, h.pop2_lat);
-	printf("/*******************/\n");
-
-	printf("Per thread result : \n");
-	for(i = 0; i < s->num_thr; i++ ) {
-		printf("Thread %lu : \n\tpush pat : %lu\n\tpop pat : %lu\n", i, s->handles[i].push_patience, s->handles[i].pop_patience);
-	}
-	printf("**** Gen node to free : %lu ****\n",s->node_to_free);
 }

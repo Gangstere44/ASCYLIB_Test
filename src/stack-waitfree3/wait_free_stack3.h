@@ -32,19 +32,6 @@ typedef struct wf_segment
 
 } wf_segment_t;
 
-typedef struct handle {
-
-	uint64_t pop1_lat;
-	uint64_t pop1_count;
-
-	uint64_t pop2_lat;
-	uint64_t pop2_count;
-
-	uint64_t push_lat;
-	uint64_t push_count;
-
-} handle_t;
-
 typedef struct wf_stack {
 
 	uint64_t num_thr;
@@ -52,8 +39,6 @@ typedef struct wf_stack {
 	wf_segment_t sentinel;
 	volatile int64_t top_id;
 	wf_segment_t* volatile top;
-
-	handle_t* handles;
 
 	volatile int64_t clean_tid;
 
@@ -72,5 +57,5 @@ void push(wf_stack_t* s, int64_t tid, void* value);
 void* pop(wf_stack_t* s, int64_t tid);
 
 void try_clean_up(wf_stack_t* s, int64_t tid);
-void print_profiling(wf_stack_t* s);
+
 #endif
