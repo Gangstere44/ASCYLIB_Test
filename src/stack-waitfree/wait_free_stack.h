@@ -4,6 +4,21 @@
 #define ASCYLIB_PROJECT_WAIT_FREE_QUEUE_H
 
 
+#include <assert.h>
+#include <getopt.h>
+#include <limits.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdio.h>
+#include <sys/time.h>
+#include <time.h>
+
+#include "common.h"
+
+#include <atomic_ops.h>
+#include "lock_if.h"
+#include "utils.h"
+
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,7 +26,7 @@
 
 #include "ssmem.h"
 #include "atomic_ops_if.h"
-#include "getticks.h"
+
 
 // size of a segment to free
 #define W 2 

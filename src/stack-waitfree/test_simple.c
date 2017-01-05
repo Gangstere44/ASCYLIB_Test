@@ -48,7 +48,6 @@
 #endif
 
 #include "wait_free_stack.h"
-#include "intset.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
@@ -57,7 +56,7 @@
 //#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
 #define DS_ADD(stack,tid,val)       push(stack,tid,val) 
 #define DS_REMOVE(stack,tid)        pop(stack,tid)
-#define DS_SIZE(stack)          	stack_size(stack)
+#define DS_SIZE(stack)          	  stack_size(stack)
 #define DS_NEW(num_thr)            	init_wf_stack(num_thr)
 
 #define DS_TYPE            			wf_stack_t
@@ -562,15 +561,12 @@ main(int argc, char **argv)
 #endif
     
 #define LLU long long unsigned int
-
-  printf("success %lu, unsuccess %lu \n", putting_count_total_succ, removing_count_total_succ);
-  int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
   
-  // CHANGED
-  if (size_after != pr)
+  int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
+  if (size_after != (initial + pr))
     {
-      printf("// WRONG size.  %d != %zu\n", pr, size_after);
-      assert(size_after == pr);
+      printf("// WRONG size. %zu + %d = %zu != %zu\n", initial, pr, initial + pr, size_after);
+      /* assert(size_after == (initial + pr)); */
     }
 
   printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
