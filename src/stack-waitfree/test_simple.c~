@@ -47,20 +47,20 @@
 #  include <sys/procset.h>
 #endif
 
-#include "queue-waitfree.h"
+#include "stack-waitfree.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
  * ################################################################### */
 
-//#define DS_CONTAINS(q,v)    wf_queue_contains(q,v)
-#define DS_ADD(q,h,v)       wf_enqueue(q, h, v)
-#define DS_REMOVE(q,h)      wf_dequeue(q,h)
-#define DS_SIZE(q)          wf_queue_size(q)
-#define DS_NEW(n)           init_wf_queue(n)
+//#define DS_CONTAINS(s,k,t)  mstack_contains(s, k)
+#define DS_ADD(stack,tid,val)       push(stack,tid,val) 
+#define DS_REMOVE(stack,tid)        pop(stack,tid)
+#define DS_SIZE(stack)          	  stack_size(stack)
+#define DS_NEW(num_thr)            	init_wf_stack(num_thr)
 
-#define DS_TYPE             wf_queue_t
-#define DS_NODE             wf_segment_t
+#define DS_TYPE            			wf_stack_t
+#define DS_NODE           			node_t
 
 /* ################################################################### *
  * GLOBALS
@@ -84,7 +84,7 @@ size_t size_after = 0;
 int seed = 0;
 __thread unsigned long * seeds;
 uint32_t rand_max;
-#define rand_min 4
+#define rand_min 1
 
 static volatile int stop;
 TEST_VARS_GLOBAL;
@@ -103,6 +103,7 @@ volatile ticks *removing_count;
 volatile ticks *removing_count_succ;
 volatile ticks *total;
 
+
 /* ################################################################### *
  * LOCALS
  * ################################################################### */
@@ -119,8 +120,6 @@ typedef struct thread_data
 {
   uint32_t id;
   DS_TYPE* set;
-  wf_handle_t* handle;
-
 } thread_data_t;
 
 void*
@@ -132,7 +131,6 @@ test(void* thread)
   ssalloc_init();
 
   DS_TYPE* set = td->set;
-  wf_handle_t* h = td->handle;
 
   THREAD_INIT(ID);
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
@@ -160,14 +158,13 @@ test(void* thread)
     
   seeds = seed_rand();
 #if GC == 1
-  alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(alloc != NULL);
-  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  alloc_wf = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc_wf != NULL);
+  ssmem_alloc_init_fs_size(alloc_wf, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
 #endif
     
 
   RR_INIT(phys_id);
-
   barrier_cross(&barrier);
 
   uint64_t key;
@@ -190,9 +187,9 @@ test(void* thread)
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      DS_ADD(set, h, (void*) key);   
+	  DS_ADD(set, ID, (void*) key);   
     }
-
+	
   MEM_BARRIER;
 
   barrier_cross(&barrier);
@@ -216,8 +213,8 @@ test(void* thread)
       {                 
         key = (c & rand_max) + rand_min;
         START_TS(1);    
-        DS_ADD(set, h, ((void*) key));          
-        if(true) // will never fail to push           
+        DS_ADD(set, ID, (void*) key);   
+        if(true) // never fail to push           
         {               
           END_TS(1, my_putting_count_succ);       
           ADD_DUR(my_putting_succ);         
@@ -231,7 +228,7 @@ test(void* thread)
       {                 
         void* removed;              
         START_TS(2);              
-        removed = DS_REMOVE(set, h);           
+        removed = DS_REMOVE(set, ID);   
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -245,13 +242,6 @@ test(void* thread)
       cpause((num_threads-1)*32); 
     }
 
-  #ifdef RECORD_F_S
-  wf_reclaim_records(set, h);
-  #endif
-
-  #ifdef CHECK_CORRECTNESS
-  wf_reclaim_correctness(set, h);
-  #endif
 
   barrier_cross(&barrier);
   RR_STOP_SIMPLE();
@@ -290,7 +280,7 @@ test(void* thread)
   SSPFDTERM();
 #if GC == 1
   ssmem_term();
-  free(alloc);
+  free(alloc_wf);
 #endif
   THREAD_END();
   pthread_exit(NULL);
@@ -369,7 +359,7 @@ main(int argc, char **argv)
 	  break;
 	case 'i':
 	  initial = atoi(optarg);
-    break;
+	  break;
 	case 'n':
 	  num_threads = atoi(optarg);
 	  break;
@@ -413,7 +403,8 @@ main(int argc, char **argv)
     }
 
   printf("## Initial: %zu / Range: %zu / ", initial, range);
-  printf("MS lock-based algorithm\n");
+
+  printf("Wait-free stack algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;
@@ -459,12 +450,9 @@ main(int argc, char **argv)
   timeout.tv_nsec = (duration % 1000) * 1000000;
     
   stop = 0;
-  
-
-
+    
   DS_TYPE* set = DS_NEW(num_threads);
   assert(set != NULL);
-
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -479,29 +467,7 @@ main(int argc, char **argv)
   getting_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
-  
-// ADDED : HANDLES CREATION AND QUEUE
-
-uint64_t tid = 0;
-
-wf_handle_t handles[num_threads];
-wf_handle_t* volatile first = &handles[num_threads - 1];
-init_wf_handle(first, set->q, tid++);
-wf_handle_t* volatile prev = first;
-wf_handle_t* volatile currentH = NULL;
-uint64_t hn;
-for(hn = 0; hn < num_threads - 1; hn++) {
-	
-	currentH = &handles[hn];
-	init_wf_handle(currentH, set->q, tid++);
-
-	prev->next = currentH;
-	prev = currentH;
-}
-prev->next = first;
-
-// END
- 
+    
   pthread_t threads[num_threads];
   pthread_attr_t attr;
   int rc;
@@ -520,21 +486,19 @@ prev->next = first;
   for(t = 0; t < num_threads; t++)
     {
       tds[t].id = t;
-      // ADDED
-      tds[t].handle = &handles[t];
       tds[t].set = set;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
-    	{
-    	  printf("ERROR; return code from pthread_create() is %d\n", rc);
-    	  exit(-1);
-    	}
+	{
+	  printf("ERROR; return code from pthread_create() is %d\n", rc);
+	  exit(-1);
+	}
         
     }
     
   /* Free attribute and wait for the other threads */
   pthread_attr_destroy(&attr);
-  
+    
   barrier_cross(&barrier_global);
   gettimeofday(&start, NULL);
   nanosleep(&timeout, NULL);
@@ -552,8 +516,6 @@ prev->next = first;
 	  exit(-1);
 	}
     }
-
-
 
   free(tds);
     
@@ -597,15 +559,14 @@ prev->next = first;
   long unsigned rem_fal = (removing_count_total - removing_count_total_succ) ? removing_fal_total / (removing_count_total - removing_count_total_succ) : 0;
   printf("%-7zu %-8lu %-8lu %-8lu %-8lu %-8lu %-8lu\n", num_threads, get_suc, get_fal, put_suc, put_fal, rem_suc, rem_fal);
 #endif
-     
- 
+    
 #define LLU long long unsigned int
-
+  
   int UNUSED pr = (int) (putting_count_total_succ - removing_count_total_succ);
   if (size_after != (initial + pr))
     {
-      printf("// WRONG size. %d != %zu\n", pr, size_after);
-      assert(size_after == pr);
+      printf("// WRONG size. %zu + %d = %zu != %zu\n", initial, pr, initial + pr, size_after);
+      assert(size_after == (initial + pr)); 
     }
 
   printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
@@ -626,27 +587,13 @@ prev->next = first;
   double throughput = (putting_count_total + getting_count_total + removing_count_total) * 1000.0 / duration;
   printf("#txs %zu\t(%-10.0f\n", num_threads, throughput);
   printf("#Mops %.3f\n", throughput / 1e6);
+
   RR_PRINT_UNPROTECTED(RAPL_PRINT_POW);
   RR_PRINT_CORRECTED();
   RETRY_STATS_PRINT(total, putting_count_total, removing_count_total, putting_count_total_succ + removing_count_total_succ);    
   LATENCY_DISTRIBUTION_PRINT();
 
-  // ADDED
-  // print % slow op
-  #ifdef RECORD_F_S
-  double ratio_enq = ((double) set->tot_slow_enq) / (set->tot_slow_enq + set->tot_fast_enq);
-  double ratio_deq = ((double) set->tot_slow_deq) / (set->tot_slow_deq + set->tot_fast_deq);
-  printf("Amount of slow operations : \n \t Slow enqueue : \t %lf \n \t Slow dequeue : \t %lf \n\n", ratio_enq, ratio_deq);
-  #endif
-
-  #ifdef CHECK_CORRECTNESS
-  wf_sum_queue(set);
-  printf("Correctness check : \n \t enq_sum = %ld == deq_sum = %ld ? s1 - s2 = %ld\n", set->tot_sum_enq, set->tot_sum_deq, set->tot_sum_enq - set->tot_sum_deq);
-  #endif
-
   pthread_exit(NULL);
     
-
-
   return 0;
 }

@@ -2,8 +2,8 @@ ROOT = ../..
 
 include $(ROOT)/common/Makefile.common
 
-ALGO_O = wait_free_queue.o
-ALGO_C = wait_free_queue.c
+ALGO_O = queue-waitfree.o
+ALGO_C = queue-waitfree.c
 
 BINS = "$(BINDIR)/wf-qu$(BIN_SUFFIX)"
 PROF = $(ROOT)/src
@@ -18,29 +18,14 @@ measurements.o:
 ssalloc.o:
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/ssalloc.o $(PROF)/ssalloc.c
 
-htlock.o:
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/htlock.o $(PROF)/htlock.c
-
-clh.o:
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/clh.o $(PROF)/clh.c
-
-queue-lock.o:
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/queue-lock.o queue-lock.c
-
-$(ALGO_O): queue-lock.h 
+$(ALGO_O): 
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/$(ALGO_O) $(ALGO_C)
 
-queue-ms.o: queue-lock.h 
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/queue-ms.o queue-ms.c
-
-intset.o: queue-lock.h queue-ms.h htlock.o clh.o
-	$(CC) $(CFLAGS) -c -o $(BUILDIR)/intset.o intset.c
-
-test.o: queue-lock.h wait_free_queue.h queue-ms.h intset.h
+test.o: queue-waitfree.h
 	$(CC) $(CFLAGS) -c -o $(BUILDIR)/test.o $(TEST_FILE)
 
-main: measurements.o ssalloc.o queue-lock.o $(ALGO_O) intset.o test.o clh.o
-	$(CC) $(CFLAGS) $(BUILDIR)/measurements.o $(BUILDIR)/ssalloc.o $(BUILDIR)/htlock.o $(BUILDIR)/clh.o $(BUILDIR)/queue-lock.o $(BUILDIR)/$(ALGO_O) $(BUILDIR)/intset.o $(BUILDIR)/test.o -o $(BINS) $(LDFLAGS)
+main: measurements.o ssalloc.o $(ALGO_O) test.o 
+	$(CC) $(CFLAGS) $(BUILDIR)/measurements.o $(BUILDIR)/ssalloc.o $(BUILDIR)/$(ALGO_O) $(BUILDIR)/test.o -o $(BINS) $(LDFLAGS)
 
 clean:
 	-rm -f $(BINS) *.o

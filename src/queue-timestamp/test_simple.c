@@ -47,20 +47,20 @@
 #  include <sys/procset.h>
 #endif
 
-#include "queue-waitfree.h"
+#include "queue-timestamp.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
  * ################################################################### */
 
 //#define DS_CONTAINS(q,v)    wf_queue_contains(q,v)
-#define DS_ADD(q,h,v)       wf_enqueue(q, h, v)
-#define DS_REMOVE(q,h)      wf_dequeue(q,h)
-#define DS_SIZE(q)          wf_queue_size(q)
-#define DS_NEW(n)           init_wf_queue(n)
+#define DS_ADD(queue,tid,val)     ts_enqueue(queue,val,tid)
+#define DS_REMOVE(queue,tid)    	ts_dequeue(queue,tid)
+#define DS_SIZE(queue)          	ts_queue_size(queue)
+#define DS_NEW(num_thr)          	ts_new_queue(num_thr)
 
-#define DS_TYPE             wf_queue_t
-#define DS_NODE             wf_segment_t
+#define DS_TYPE            			ts_queue_t
+#define DS_NODE             		node_t
 
 /* ################################################################### *
  * GLOBALS
@@ -75,6 +75,13 @@ size_t load_factor;
 size_t num_threads = DEFAULT_NB_THREADS; 
 size_t duration = DEFAULT_DURATION;
 
+// CHANGE
+#define DEFAULT_DELAY_TICKS 1
+size_t delay_ticks = DEFAULT_DELAY_TICKS;
+
+#define DEFAULT_STRATEGY 1
+size_t interval_strategy = DEFAULT_STRATEGY;
+
 size_t print_vals_num = 100; 
 size_t pf_vals_num = 1023;
 size_t put, put_explicit = false;
@@ -84,7 +91,7 @@ size_t size_after = 0;
 int seed = 0;
 __thread unsigned long * seeds;
 uint32_t rand_max;
-#define rand_min 4
+#define rand_min 1
 
 static volatile int stop;
 TEST_VARS_GLOBAL;
@@ -103,6 +110,10 @@ volatile ticks *removing_count;
 volatile ticks *removing_count_succ;
 volatile ticks *total;
 
+//ADDED
+//static volatile wf_queue_t queue;
+
+
 /* ################################################################### *
  * LOCALS
  * ################################################################### */
@@ -119,8 +130,6 @@ typedef struct thread_data
 {
   uint32_t id;
   DS_TYPE* set;
-  wf_handle_t* handle;
-
 } thread_data_t;
 
 void*
@@ -132,7 +141,6 @@ test(void* thread)
   ssalloc_init();
 
   DS_TYPE* set = td->set;
-  wf_handle_t* h = td->handle;
 
   THREAD_INIT(ID);
   PF_INIT(3, SSPFD_NUM_ENTRIES, ID);
@@ -160,15 +168,16 @@ test(void* thread)
     
   seeds = seed_rand();
 #if GC == 1
-  alloc = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
-  assert(alloc != NULL);
-  ssmem_alloc_init_fs_size(alloc, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
+  alloc_ts = (ssmem_allocator_t*) malloc(sizeof(ssmem_allocator_t));
+  assert(alloc_ts != NULL);
+  ssmem_alloc_init_fs_size(alloc_ts, SSMEM_DEFAULT_MEM_SIZE, SSMEM_GC_FREE_SET_SIZE, ID);
 #endif
     
 
   RR_INIT(phys_id);
 
   barrier_cross(&barrier);
+
 
   uint64_t key;
   int c = 0;
@@ -190,7 +199,7 @@ test(void* thread)
   for(i = 0; i < num_elems_thread; i++) 
     {
       key = (my_random(&(seeds[0]), &(seeds[1]), &(seeds[2])) % (rand_max + 1)) + rand_min;
-      DS_ADD(set, h, (void*) key);   
+      DS_ADD(set, ID, (void*) key);   
     }
 
   MEM_BARRIER;
@@ -215,9 +224,9 @@ test(void* thread)
       if (unlikely(c < scale_put))            
       {                 
         key = (c & rand_max) + rand_min;
-        START_TS(1);    
-        DS_ADD(set, h, ((void*) key));          
-        if(true) // will never fail to push           
+        START_TS(1);                  
+        DS_ADD(set, ID, (void*) key);          
+        if(true) // will never fail to push          
         {               
           END_TS(1, my_putting_count_succ);       
           ADD_DUR(my_putting_succ);         
@@ -231,7 +240,7 @@ test(void* thread)
       {                 
         void* removed;              
         START_TS(2);              
-        removed = DS_REMOVE(set, h);           
+        removed = DS_REMOVE(set, ID);      
         if(removed != ((void*) 0))              
         {               
           END_TS(2, my_removing_count_succ);        
@@ -260,6 +269,7 @@ test(void* thread)
     {
       size_after = DS_SIZE(set);
       printf("#AFTER  size is: %zu\n", size_after);
+
     }
 
   barrier_cross(&barrier);
@@ -290,7 +300,7 @@ test(void* thread)
   SSPFDTERM();
 #if GC == 1
   ssmem_term();
-  free(alloc);
+  free(alloc_ts);
 #endif
   THREAD_END();
   pthread_exit(NULL);
@@ -299,6 +309,8 @@ test(void* thread)
 int
 main(int argc, char **argv) 
 {
+    printf("++++");
+
   set_cpu(0);
   ssalloc_init();
   seeds = seed_rand();
@@ -314,20 +326,24 @@ main(int argc, char **argv)
     {"num-buckets",               required_argument, NULL, 'b'},
     {"print-vals",                required_argument, NULL, 'v'},
     {"vals-pf",                   required_argument, NULL, 'f'},
+    {"delay-ticks",               required_argument, NULL, 't'},
+    {"choose-inter",              required_argument, NULL, 'a'},
     {NULL, 0, NULL, 0}
   };
 
   int i, c;
+      printf("----");
+
   while(1) 
     {
       i = 0;
-      c = getopt_long(argc, argv, "hAf:d:i:n:r:s:u:m:a:l:p:b:v:f:", long_options, &i);
+      c = getopt_long(argc, argv, "hAf:d:i:n:r:u:b:v:f:t:a:m", long_options, &i);
 		
       if(c == -1)
-	break;
+      	break;
 		
       if(c == 0 && long_options[i].flag == 0)
-	c = long_options[i].val;
+      	c = long_options[i].val;
 		
       switch(c) 
 	{
@@ -362,6 +378,10 @@ main(int argc, char **argv)
 		 "        When using detailed profiling, how many values to print.\n"
 		 "  -f, --val-pf <int>\n"
 		 "        When using detailed profiling, how many values to keep track of.\n"
+     "  -t, --delay-ticks <int>\n"
+     "        Number of nanoseconds to compute an interval.\n"
+     "  -a, --choose-inter <int>\n"
+     "        1 is for naive interval, 2 is for CAS, 3 is for regular interval.\n"
 		 , argv[0]);
 	  exit(0);
 	case 'd':
@@ -392,6 +412,12 @@ main(int argc, char **argv)
 	case 'f':
 	  pf_vals_num = pow2roundup(atoi(optarg)) - 1;
 	  break;
+  case 't':
+    delay_ticks = atoi(optarg);
+    break;
+  case 'a':
+    interval_strategy = atoi(optarg);
+    break;
 	case '?':
 	default:
 	  printf("Use -h or --help for help\n");
@@ -413,7 +439,7 @@ main(int argc, char **argv)
     }
 
   printf("## Initial: %zu / Range: %zu / ", initial, range);
-  printf("MS lock-based algorithm\n");
+  printf("TimeStamp queue algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;
@@ -459,12 +485,13 @@ main(int argc, char **argv)
   timeout.tv_nsec = (duration % 1000) * 1000000;
     
   stop = 0;
-  
-
 
   DS_TYPE* set = DS_NEW(num_threads);
   assert(set != NULL);
 
+  // SPECIFIC TO TIME STAMPED QUEUE
+  set->delay_ticks = delay_ticks;
+  set->strategy = interval_strategy;
 
   /* Initializes the local data */
   putting_succ = (ticks *) calloc(num_threads , sizeof(ticks));
@@ -480,28 +507,6 @@ main(int argc, char **argv)
   removing_count = (ticks *) calloc(num_threads , sizeof(ticks));
   removing_count_succ = (ticks *) calloc(num_threads , sizeof(ticks));
   
-// ADDED : HANDLES CREATION AND QUEUE
-
-uint64_t tid = 0;
-
-wf_handle_t handles[num_threads];
-wf_handle_t* volatile first = &handles[num_threads - 1];
-init_wf_handle(first, set->q, tid++);
-wf_handle_t* volatile prev = first;
-wf_handle_t* volatile currentH = NULL;
-uint64_t hn;
-for(hn = 0; hn < num_threads - 1; hn++) {
-	
-	currentH = &handles[hn];
-	init_wf_handle(currentH, set->q, tid++);
-
-	prev->next = currentH;
-	prev = currentH;
-}
-prev->next = first;
-
-// END
- 
   pthread_t threads[num_threads];
   pthread_attr_t attr;
   int rc;
@@ -520,8 +525,6 @@ prev->next = first;
   for(t = 0; t < num_threads; t++)
     {
       tds[t].id = t;
-      // ADDED
-      tds[t].handle = &handles[t];
       tds[t].set = set;
       rc = pthread_create(&threads[t], &attr, test, tds + t);
       if (rc)
@@ -531,7 +534,7 @@ prev->next = first;
     	}
         
     }
-    
+
   /* Free attribute and wait for the other threads */
   pthread_attr_destroy(&attr);
   

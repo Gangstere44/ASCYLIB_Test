@@ -47,7 +47,7 @@
 #  include <sys/procset.h>
 #endif
 
-#include "wait_free_stack.h"
+#include "stack-waitfree.h"
 
 /* ################################################################### *
  * Definition of macros: per data structure
@@ -404,7 +404,7 @@ main(int argc, char **argv)
 
   printf("## Initial: %zu / Range: %zu / ", initial, range);
 
-  printf("Wait-free stack algorithm\n");
+  printf("Waitfree stack algorithm\n");
 
   double kb = initial * sizeof(DS_NODE) / 1024.0;
   double mb = kb / 1024.0;
@@ -566,7 +566,7 @@ main(int argc, char **argv)
   if (size_after != (initial + pr))
     {
       printf("// WRONG size. %zu + %d = %zu != %zu\n", initial, pr, initial + pr, size_after);
-      /* assert(size_after == (initial + pr)); */
+      assert(size_after == (initial + pr)); 
     }
 
   printf("    : %-10s | %-10s | %-11s | %-11s | %s\n", "total", "success", "succ %", "total %", "effective %");
