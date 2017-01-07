@@ -9,7 +9,10 @@ NOISE = src/noise
 TESTS = src/tests src/optik_test
 BSTS = src/bst-bronson src/bst-drachsler src/bst-ellen src/bst-howley src/bst-aravind src/bst-tk/
 
-.PHONY:	clean all external $(BENCHS) $(LBENCHS) $(NOISE) $(TESTS) $(SEQBENCHS)
+# WF add for the wait free data structure
+WFBENCHS = src/stack-waitfree src/stack-waitfree_node src/stack-waitfree_seg src/queue-waitfree src/queue-timestamp
+
+.PHONY:	clean all external $(BENCHS) $(LBENCHS) $(NOISE) $(TESTS) $(SEQBENCHS) $(WFBENCHS)
 
 default: lockfree tas seq
 
@@ -378,6 +381,23 @@ lfpq_lotanshavit:
 
 pq: lfpq_alistarh lfpq_alistarh_herlihy lbpq_alistarh_pugh lfpq_lotanshavit
 
+wf_queue:
+	$(MAKE) src/queue-waitfree
+
+ts_queue:
+	$(MAKE) src/queue-timestamp
+
+wf_stack:
+	$(MAKE) src/stack-waitfree
+
+wf_stack_node:
+	$(MAKE) src/stack-waitfree_node
+
+wf_stack_segment:
+	$(MAKE) src/stack-waitfree_seg
+
+wf: wf_queue ts_queue wf_stack wf_stack_node wf_stack_segment
+
 clean:
 	$(MAKE) -C src/bst-aravind clean
 	$(MAKE) -C src/bst-bronson clean
@@ -445,6 +465,12 @@ clean:
 	$(MAKE) -C src/priorityqueue-alistarh-pughBased clean
 	$(MAKE) -C src/priorityqueue-lotanshavit_lf clean
 	$(MAKE) -C src/tests clean
+	$(MAKE) -C src/stack-waitfree clean
+	$(MAKE) -C src/stack-waitfree_node clean
+	$(MAKE) -C src/stack-waitfree_seg clean
+	$(MAKE) -C src/queue-waitfree clean
+	$(MAKE) -C src/queue-timestamp clean
+	
 	rm -rf build
 
 $(SEQBENCHS):
@@ -463,5 +489,9 @@ $(TESTS):
 	$(MAKE) -C $@ $(TARGET)
 
 $(EXTERNALS):
+	$(MAKE) -C $@ $(TARGET)
+
+#WF add for waitfree data structure
+$(WFBENCHS):
 	$(MAKE) -C $@ $(TARGET)
 
