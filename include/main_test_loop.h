@@ -214,6 +214,7 @@
       my_removing_count++;						\
     }									\
   cpause((num_threads-1)*32);
+
 /* cdelay(1); */
 /* cpause(0); */
 /* cdelay((num_threads-1)*128); */

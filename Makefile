@@ -381,6 +381,7 @@ lfpq_lotanshavit:
 
 pq: lfpq_alistarh lfpq_alistarh_herlihy lbpq_alistarh_pugh lfpq_lotanshavit
 
+#WF add for the wait free data structure
 wf_queue:
 	$(MAKE) src/queue-waitfree
 
