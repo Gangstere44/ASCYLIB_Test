@@ -83,15 +83,20 @@ The following table contains the algorithms (and various implementations of some
 |49| [MS queue with OPTIK trylock-version](./src/queue-optik1/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
 |50| [MS queue with OPTIK trylock-version](./src/queue-optik2/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
 |51| [MS queue with OPTIK and victim queue](./src/queue-optik3/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
+|52| [Wait-free queue as fast as fetch-and-add](./src/queue-waitfree/) | wait-free | 2016 | [[YJ+16]](#YJ+16) |
+|53| [Time-stamped queue](./src/queue-timestamp/) | wait-free | 2015 | [[DHK+15]](#DHK+15) |
 || **Priority Queues** ||||
-|52| [Lotan and Shavit priority queue](./src/priorityqueue-lotanshavit_lf/) |	lock-free | 2000 | [[LS+00]](#LS+00) |
-|53| [Alistarh et al. priority queue based on Fraser's skip list](./src/priorityqueue-alistarh/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
-|54| [Alistarh et al. priority queue based on Herlihy's skip list](./src/priorityqueue-alistarh-herlihyBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
-|55| [Alistarh et al. priority queue based on Pugh's skip list](./src/priorityqueue-alistarh-pughBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|53| [Lotan and Shavit priority queue](./src/priorityqueue-lotanshavit_lf/) |	lock-free | 2000 | [[LS+00]](#LS+00) |
+|54| [Alistarh et al. priority queue based on Fraser's skip list](./src/priorityqueue-alistarh/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|55| [Alistarh et al. priority queue based on Herlihy's skip list](./src/priorityqueue-alistarh-herlihyBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|56| [Alistarh et al. priority queue based on Pugh's skip list](./src/priorityqueue-alistarh-pughBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
 || **Stacks** ||||
-|56| [Global-lock stack](./src/stack-lock/) |	lock-based | | |
-|57| [Treiber stack](./src/stack-treiber/) |	lock-free | 1986 | [[T+86]](#T+86) |
-|58| [Treiber stack with OPTIK trylocks](./src/stack-optik/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
+|57| [Global-lock stack](./src/stack-lock/) |	lock-based | | |
+|58| [Treiber stack](./src/stack-treiber/) |	lock-free | 1986 | [[T+86]](#T+86) |
+|59| [Treiber stack with OPTIK trylocks](./src/stack-optik/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
+|60| [Wait-free stack](./src/stack-waitfree) | wait-free | 2015 | [[GAS+15]](#GAS+15) |
+|61| [Node based wait-free stack](./src/stack-waitfree_node/) | wait-free | 2017 |  |
+|62| [Segment based wait-free stack](./src/stack-waitfree_seg/) | wait-free | 2017 |  |
 
 References
 ----------
@@ -112,6 +117,10 @@ ASPLOS '15.
 M. Desnoyers, P. E. McKenney, A. S. Stern, M. R. Dagenais, and J. Walpole.
 *User-level implementations of read-copy update*.
 PDS '12.
+* <a name="DHK+15">**[DHK+15]**</a>
+M. Dodds, A. Haas and C. M. Kirsch.
+*A Scalable, Correct Time-Stamped Stack*.
+POPL '15.
 * <a name="DVY+14">**[DVY+14]**</a>
 D. Drachsler, M. Vechev, and E. Yahav.
 *Practical Concurrent Binary Search Trees via Logical Ordering*.
@@ -124,6 +133,10 @@ PODC '10.
 K. Fraser.
 *Practical Lock-Freedom*.
 PhD thesis, University of Cambridge, 2004.
+* <a name="GAS+15">**[GAS+15]**</a>
+S. Goel, P. Aggarwal and S. R. Sarangi.
+*A Wait-Free Stack*.
+arXiv:1510.00116v1[cs.DC].
 * <a name="GT+16">**[GT+16]**</a>
 R. Guerraoui, and V. Trigonakis.
 *Optimistic Concurrency with OPTIK*.
@@ -189,6 +202,10 @@ Technical report, 1990.
 R. Treiber.
 *Systems Programming: Coping with Parallelism*.
 Technical report, 1986.
+* <a name="YJ+16">**[YJ+16]**</a>
+C. Yang and J. Mellor Crummey.
+*A Wait-free Queue as Fast as Fetch-and-Add*.
+PPoPP '16.
 
 New Algorithms
 --------------
