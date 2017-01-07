@@ -252,7 +252,7 @@ node_t* ts_insert(ts_queue_t* q, pool_t* pool, void* val) {
 }
 
 void ts_get_oldest(ts_queue_t* q, pool_t* p, get_oldest_request_t* old_req) {
-
+	/* get the oldest unmarked node for the pool */
 	node_t* old_head = p->head;
 	node_t* result = old_head;
 	while(true) {
@@ -273,18 +273,17 @@ void ts_remove(ts_queue_t* q, pool_t* pool, node_t* old_head, node_t* new_head, 
 	
 	if(CAS_U64_bool(&new_head->taken, false, true)) {
 
-/*
-		CAS_U64_bool(&pool->head, old_head, new_head);
-
-		deq_req->success = true;
-		deq_req->element = new_head->value;
-*/
-
+		/* if the head isn't changed by somebody else
+		=> we try to free node between the old head and 
+		the one we dequeued, not include */
 		if(CAS_U64_bool(&pool->head, old_head, new_head)) {
-		
+			
 			node_t* tmp = old_head;
 			node_t* next_tmp = tmp;
+			/* we stop whenever a node isn't taken
+			or the tmp is the node we are dequeuing */
 			while(tmp->taken && tmp != new_head) {
+
 				next_tmp = tmp->next;
 				ssmem_free(alloc_ts, (void*) tmp);
 				tmp = next_tmp;
@@ -292,8 +291,12 @@ void ts_remove(ts_queue_t* q, pool_t* pool, node_t* old_head, node_t* new_head, 
 
 		}
 
-			deq_req->success = true;
-			deq_req->element = new_head->value;
-
+		deq_req->success = true;
+		deq_req->element = new_head->value;
+		return;
 	}
+
+	// somebody was faster than us
+	deq_req->success = false;
+	deq_req->element = NULL;
 }

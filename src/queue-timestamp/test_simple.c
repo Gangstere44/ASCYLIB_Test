@@ -309,8 +309,6 @@ test(void* thread)
 int
 main(int argc, char **argv) 
 {
-    printf("++++");
-
   set_cpu(0);
   ssalloc_init();
   seeds = seed_rand();
@@ -332,8 +330,6 @@ main(int argc, char **argv)
   };
 
   int i, c;
-      printf("----");
-
   while(1) 
     {
       i = 0;
