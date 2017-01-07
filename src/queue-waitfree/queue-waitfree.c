@@ -2,6 +2,8 @@
 
 #include "queue-waitfree.h"
 
+#include <assert.h>
+
 // present in order to use test_simple.c 
 __thread ssmem_allocator_t* alloc;
 
@@ -558,19 +560,17 @@ void wf_cleanup(wf_queue_t* q, wf_handle_t* h) {
 	wf_segment_t* s = q->q;
 	wf_handle_t* hds[q->num_thr]; 
 	uint64_t j = 0;
-	wf_handle_t* p = NULL;
+	wf_handle_t* p = h;
 
-	for(p = h->next; p != h && e->id > i; p = p->next) {
-		/* will move the head and tail 
-		of the handles to the smallest seg in use,
-		this seg is given by the hazard pointer of
-		the different handle*/
+	do {
 
 		wf_verify(&e, p->hzdp); 
 		wf_update(&p->head, &e, p);
 		wf_update(&p->tail, &e, p);
 		hds[j++] = p;
-	}
+
+		p = p->next;
+	} while(p != h && e->id > i);
 
 	/* reverse traversal because the last update
 	we made before was the best in any case */
@@ -582,29 +582,23 @@ void wf_cleanup(wf_queue_t* q, wf_handle_t* h) {
 	smaller or the last freed segment 
 	=> nothing to do */
 	if(e->id <= i) {
-		q->q = s;
+
 		q->I = i;
-		return;
-	}
-	
-	/* a better position found*/
-	q->q = e;
-	q->I = e->id;
-	
-	/* we free from s to e, e not include */
-	wf_free_list(s, e);
 
-}
+	} else {
 
-void wf_free_list(wf_segment_t* from, wf_segment_t* to) {
-	
-	wf_segment_t* i = NULL;
-	for(i = from; i != to; ) {
-		wf_segment_t* tmp = i;
-		i = i->next;
-		//free(tmp);
+		/* a better position found*/
+		q->q = e;
+
+		while(s != e) {
+			wf_segment_t* tmp = s->next;
+			free(s);
+			s = tmp;
+		}
+
+		q->I = e->id;
+
 	}
-	
 }
 
 void wf_update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h) {

@@ -1,0 +1,231 @@
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 823
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1079925    | 1079925    |      100.0% |       50.0% |       50.0%
+rems: 1080126    | 1080126    |      100.0% |       50.0% |       50.0%
+#txs 48	(2157893   
+#Mops 2.158
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2030
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1032054    | 1032054    |      100.0% |       50.0% |       50.0%
+rems: 1031048    | 1031048    |      100.0% |       50.0% |       50.0%
+#txs 48	(2061041   
+#Mops 2.061
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2759
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1053935    | 1053935    |      100.0% |       50.0% |       50.0%
+rems: 1052200    | 1052200    |      100.0% |       50.0% |       50.0%
+#txs 48	(2106135   
+#Mops 2.106
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 1379
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 957755     | 957755     |      100.0% |       50.0% |       50.0%
+rems: 957400     | 957400     |      100.0% |       50.0% |       50.0%
+#txs 48	(1915155   
+#Mops 1.915
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 3524
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1025060    | 1025060    |      100.0% |       50.1% |       50.1%
+rems: 1022560    | 1022560    |      100.0% |       49.9% |       49.9%
+#txs 48	(2045574   
+#Mops 2.046
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2325
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1095274    | 1095274    |      100.0% |       50.0% |       50.0%
+rems: 1094715    | 1093973    |       99.9% |       50.0% |       50.0%
+#txs 48	(2189989   
+#Mops 2.190
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 372
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 986679     | 986679     |      100.0% |       50.0% |       50.0%
+rems: 987331     | 987331     |      100.0% |       50.0% |       50.0%
+#txs 48	(1966145   
+#Mops 1.966
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 1417
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1020677    | 1020677    |      100.0% |       50.0% |       50.0%
+rems: 1020958    | 1020284    |       99.9% |       50.0% |       50.0%
+#txs 48	(2039595   
+#Mops 2.040
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2809
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1015476    | 1015476    |      100.0% |       50.0% |       50.0%
+rems: 1013691    | 1013691    |      100.0% |       50.0% |       50.0%
+#txs 48	(2029167   
+#Mops 2.029
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2811
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 975060     | 975060     |      100.0% |       50.0% |       50.0%
+rems: 973273     | 973273     |      100.0% |       50.0% |       50.0%
+#txs 48	(1946387   
+#Mops 1.946
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 3597
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1052251    | 1052251    |      100.0% |       50.1% |       50.1%
+rems: 1049678    | 1049678    |      100.0% |       49.9% |       49.9%
+#txs 48	(2101929   
+#Mops 2.102
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 613
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1259757    | 1259757    |      100.0% |       49.9% |       49.9%
+rems: 1262455    | 1260168    |       99.8% |       50.1% |       50.0%
+#txs 48	(2522212   
+#Mops 2.522
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 1383
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 999338     | 999338     |      100.0% |       50.0% |       50.0%
+rems: 998979     | 998979     |      100.0% |       50.0% |       50.0%
+#txs 48	(1996321   
+#Mops 1.996
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2194
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1029315    | 1029315    |      100.0% |       50.0% |       50.0%
+rems: 1028145    | 1028145    |      100.0% |       50.0% |       50.0%
+#txs 48	(2057460   
+#Mops 2.057
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 646
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1051205    | 1051205    |      100.0% |       50.0% |       50.0%
+rems: 1052619    | 1051583    |       99.9% |       50.0% |       50.0%
+#txs 48	(2101722   
+#Mops 2.102
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 460
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1020202    | 1020202    |      100.0% |       50.0% |       50.0%
+rems: 1020766    | 1020766    |      100.0% |       50.0% |       50.0%
+#txs 48	(2040968   
+#Mops 2.041
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 86
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1044719    | 1044719    |      100.0% |       50.0% |       50.0%
+rems: 1046682    | 1045657    |       99.9% |       50.0% |       50.0%
+#txs 48	(2091401   
+#Mops 2.091
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 916
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1025226    | 1025226    |      100.0% |       50.0% |       50.0%
+rems: 1025334    | 1025334    |      100.0% |       50.0% |       50.0%
+#txs 48	(2048511   
+#Mops 2.049
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 1206
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1109113    | 1109113    |      100.0% |       50.0% |       50.0%
+rems: 1108931    | 1108931    |      100.0% |       50.0% |       50.0%
+#txs 48	(2218044   
+#Mops 2.218
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2459
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1152515    | 1152515    |      100.0% |       50.0% |       50.0%
+rems: 1151080    | 1151080    |      100.0% |       50.0% |       50.0%
+#txs 48	(2303595   
+#Mops 2.304
+## Initial: 1024 / Range: 2048 / MS lock-based algorithm
+Sizeof initial: 24592.00 KB = 24.02 MB
+[ALLOC] initializing allocator with fs size: 507 objects
+#BEFORE size is: 1024
+#AFTER  size is: 2412
+    : total      | success    | succ %      | total %     | effective %
+srch: 0          | 0          |       -nan% |        0.0% | 
+insr: 1046354    | 1046354    |      100.0% |       50.0% |       50.0%
+rems: 1044966    | 1044966    |      100.0% |       50.0% |       50.0%
+#txs 48	(2087146   
+#Mops 2.087

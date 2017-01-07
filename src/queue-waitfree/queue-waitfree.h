@@ -163,7 +163,6 @@ void* wf_deq_slow(wf_queue_t* q, wf_handle_t* h, uint64_t cid);
 void wf_help_deq(wf_queue_t* q, wf_handle_t* h, wf_handle_t* helpee);
 
 void wf_cleanup(wf_queue_t* q, wf_handle_t* h);
-void wf_free_list(wf_segment_t* from, wf_segment_t* to);
 void wf_update(wf_segment_t* volatile * from, wf_segment_t** to, wf_handle_t* h);
 void wf_verify(wf_segment_t** seg, wf_segment_t* volatile hzdp);
 
