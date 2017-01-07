@@ -86,17 +86,17 @@ The following table contains the algorithms (and various implementations of some
 |52| [Wait-free queue as fast as fetch-and-add](./src/queue-waitfree/) | wait-free | 2016 | [[YJ+16]](#YJ+16) |
 |53| [Time-stamped queue](./src/queue-timestamp/) | wait-free | 2015 | [[DHK+15]](#DHK+15) |
 || **Priority Queues** ||||
-|53| [Lotan and Shavit priority queue](./src/priorityqueue-lotanshavit_lf/) |	lock-free | 2000 | [[LS+00]](#LS+00) |
-|54| [Alistarh et al. priority queue based on Fraser's skip list](./src/priorityqueue-alistarh/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
-|55| [Alistarh et al. priority queue based on Herlihy's skip list](./src/priorityqueue-alistarh-herlihyBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
-|56| [Alistarh et al. priority queue based on Pugh's skip list](./src/priorityqueue-alistarh-pughBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|54| [Lotan and Shavit priority queue](./src/priorityqueue-lotanshavit_lf/) |	lock-free | 2000 | [[LS+00]](#LS+00) |
+|55| [Alistarh et al. priority queue based on Fraser's skip list](./src/priorityqueue-alistarh/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|56| [Alistarh et al. priority queue based on Herlihy's skip list](./src/priorityqueue-alistarh-herlihyBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
+|57| [Alistarh et al. priority queue based on Pugh's skip list](./src/priorityqueue-alistarh-pughBased/) |	lock-based | 2015 | [[AKL+15]](#AKL+15) |
 || **Stacks** ||||
-|57| [Global-lock stack](./src/stack-lock/) |	lock-based | | |
-|58| [Treiber stack](./src/stack-treiber/) |	lock-free | 1986 | [[T+86]](#T+86) |
-|59| [Treiber stack with OPTIK trylocks](./src/stack-optik/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
-|60| [Wait-free stack](./src/stack-waitfree) | wait-free | 2015 | [[GAS+15]](#GAS+15) |
-|61| [Node based wait-free stack](./src/stack-waitfree_node/) | wait-free | 2017 |  |
-|62| [Segment based wait-free stack](./src/stack-waitfree_seg/) | wait-free | 2017 |  |
+|58| [Global-lock stack](./src/stack-lock/) |	lock-based | | |
+|59| [Treiber stack](./src/stack-treiber/) |	lock-free | 1986 | [[T+86]](#T+86) |
+|60| [Treiber stack with OPTIK trylocks](./src/stack-optik/) |	lock-based | 2016 | [[GT+16]](#GT+16) |
+|61| [Wait-free stack](./src/stack-waitfree) | wait-free | 2015 | [[GAS+15]](#GAS+15) |
+|62| [Node based wait-free stack](./src/stack-waitfree_node/) | wait-free | 2017 |  |
+|63| [Segment based wait-free stack](./src/stack-waitfree_seg/) | wait-free | 2017 |  |
 
 References
 ----------
